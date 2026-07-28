@@ -4,17 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inventori;
+use App\Models\Kategori;
 use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class ApiController extends Controller
 {
@@ -45,12 +44,12 @@ class ApiController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->roles->first()?->name ?? 'Tiada Peranan',
-                ]
+                ],
             ]);
         }
 
         return response()->json([
-            'message' => 'Maklumat log masuk yang diberikan tidak sepadan dengan rekod kami.'
+            'message' => 'Maklumat log masuk yang diberikan tidak sepadan dengan rekod kami.',
         ], 422);
     }
 
@@ -77,6 +76,7 @@ class ApiController extends Controller
     public function user()
     {
         $user = Auth::user();
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -90,23 +90,35 @@ class ApiController extends Controller
      */
     public function inventoriList(Request $request)
     {
-        $query = Inventori::query();
+        $query = Inventori::with('kategoriPreset');
 
         if ($request->filled('carian')) {
-            $query->where('nama_item', 'like', '%' . $request->carian . '%');
+            $query->where('nama_item', 'like', '%'.$request->carian.'%');
         }
 
-        if ($request->filled('kategori')) {
-            $query->where('kategori', $request->kategori);
+        if ($request->filled('kategori_id')) {
+            $query->where('kategori_id', $request->kategori_id);
+        } elseif ($request->filled('kategori')) {
+            $query->whereHas('kategoriPreset', function ($categoryQuery) use ($request) {
+                $categoryQuery->where('nama', $request->kategori);
+            });
         }
 
         $items = $query->orderBy('nama_item', 'asc')->get();
-        $kategoriSenarai = Inventori::distinct()->pluck('kategori');
+        $categories = Kategori::orderBy('nama')->get();
 
         return response()->json([
             'items' => $items,
-            'kategoriSenarai' => $kategoriSenarai
+            'kategoriSenarai' => $categories->pluck('nama'),
+            'categories' => $categories,
         ]);
+    }
+
+    public function kategoriList()
+    {
+        return response()->json(
+            Kategori::orderBy('nama')->get()
+        );
     }
 
     /**
@@ -114,18 +126,20 @@ class ApiController extends Controller
      */
     public function restokList()
     {
-        $habisStok = Inventori::where('jumlah_keseluruhan', 0)->get();
+        $habisStok = Inventori::with('kategoriPreset')
+            ->where('jumlah_belum_dibuka', 0)
+            ->orderBy('nama_item')
+            ->get();
 
-        $bawahAmbang = Inventori::where('jumlah_keseluruhan', '>', 0)
-            ->where(function($query) {
-                $query->whereRaw('jumlah_keseluruhan <= had_ambang')
-                      ->orWhereRaw('jumlah_belum_dibuka <= had_ambang');
-            })
+        $bawahAmbang = Inventori::with('kategoriPreset')
+            ->where('jumlah_belum_dibuka', '>', 0)
+            ->whereColumn('jumlah_belum_dibuka', '<=', 'had_ambang')
+            ->orderBy('nama_item')
             ->get();
 
         return response()->json([
             'habisStok' => $habisStok,
-            'bawahAmbang' => $bawahAmbang
+            'bawahAmbang' => $bawahAmbang,
         ]);
     }
 
@@ -134,18 +148,18 @@ class ApiController extends Controller
      */
     public function inventoriStore(Request $request)
     {
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
+        $this->resolveKategoriId($request);
+
         $validated = $request->validate([
             'nama_item' => 'required|string|max:255',
-            'kategori' => 'required|string|max:255',
-            'jenama' => 'nullable|string|max:255',
+            'kategori_id' => 'required|integer|exists:categories,id',
             'jenis' => 'nullable|string|max:255',
             'capacity' => 'nullable|string|max:255',
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
             'tarikh_luput' => 'nullable|date',
             'jejak_luput' => 'nullable|boolean',
@@ -173,18 +187,18 @@ class ApiController extends Controller
      */
     public function inventoriUpdate(Request $request, Inventori $inventori)
     {
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
+        $this->resolveKategoriId($request);
+
         $validated = $request->validate([
             'nama_item' => 'required|string|max:255',
-            'kategori' => 'required|string|max:255',
-            'jenama' => 'nullable|string|max:255',
+            'kategori_id' => 'required|integer|exists:categories,id',
             'jenis' => 'nullable|string|max:255',
             'capacity' => 'nullable|string|max:255',
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
             'tarikh_luput' => 'nullable|date',
             'jejak_luput' => 'nullable|boolean',
@@ -199,10 +213,10 @@ class ApiController extends Controller
 
         $inventori->update($validated);
 
-        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0 && $inventori->jumlah_keseluruhan > 0) {
+        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0) {
             LogAktiviti::create([
                 'user_id' => Auth::id(),
-                'aktiviti' => "Membuka unit terakhir belum dibuka untuk item: {$inventori->nama_item}.",
+                'aktiviti' => "Baki item mencapai kosong: {$inventori->nama_item}.",
                 'item_id' => $inventori->id,
                 'data_lama' => $oldData,
                 'data_baru' => $inventori->toArray(),
@@ -225,13 +239,12 @@ class ApiController extends Controller
      */
     public function inventoriAdjust(Request $request, Inventori $inventori)
     {
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
         $request->validate([
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
         ]);
 
@@ -239,16 +252,15 @@ class ApiController extends Controller
         $oldBelumDibuka = $inventori->jumlah_belum_dibuka;
 
         $inventori->update([
-            'jumlah_keseluruhan' => $request->jumlah_keseluruhan,
             'jumlah_belum_dibuka' => $request->jumlah_belum_dibuka,
             'peratus_baki' => $request->peratus_baki,
             'dikemaskini_oleh' => Auth::id(),
         ]);
 
-        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0 && $inventori->jumlah_keseluruhan > 0) {
+        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0) {
             LogAktiviti::create([
                 'user_id' => Auth::id(),
-                'aktiviti' => "Membuka unit terakhir belum dibuka untuk item: {$inventori->nama_item}.",
+                'aktiviti' => "Baki item mencapai kosong: {$inventori->nama_item}.",
                 'item_id' => $inventori->id,
                 'data_lama' => $oldData,
                 'data_baru' => $inventori->toArray(),
@@ -271,7 +283,7 @@ class ApiController extends Controller
      */
     public function inventoriDestroy(Inventori $inventori)
     {
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
@@ -312,12 +324,12 @@ class ApiController extends Controller
      */
     public function tuntutanStore(Request $request)
     {
-        if (!Auth::user()->hasRole('Stocker')) {
+        if (! Auth::user()->hasRole('Stocker')) {
             return response()->json(['message' => 'Hanya Stocker sahaja dibenarkan membuat tuntutan.'], 403);
         }
 
         $tag = $request->input('tag');
-        if (!in_array($tag, ['Stok', 'Lunch', 'General', 'Food'])) {
+        if (! in_array($tag, ['Stok', 'Lunch', 'General', 'Food'])) {
             return response()->json(['message' => 'Jenis tuntutan tidak sah.'], 422);
         }
 
@@ -331,7 +343,7 @@ class ApiController extends Controller
             ]);
 
             $date = Carbon::parse($request->tarikh_beli);
-            $year = $date->format('o'); 
+            $year = $date->format('o');
             $week = sprintf('%02d', $date->weekOfYear);
 
             $attachmentPath = null;
@@ -390,10 +402,10 @@ class ApiController extends Controller
                     $butiran = trim($lunchButirans[$i] ?? 'Lunch Claim');
                     $harga = floatval($lunchHargas[$i] ?? 5.00);
                     $nilai = $pax * $harga;
-                    
+
                     $claim = Tuntutan::create([
                         'user_id' => Auth::id(),
-                        'nama_item' => "{$butiran} ({$pax} pax @ RM " . number_format($harga, 2) . "/pax)",
+                        'nama_item' => "{$butiran} ({$pax} pax @ RM ".number_format($harga, 2).'/pax)',
                         'tag' => 'Lunch',
                         'nilai_tuntutan' => $nilai,
                         'tarikh_beli' => $lunchDates[$i],
@@ -414,7 +426,7 @@ class ApiController extends Controller
 
             return response()->json([
                 'message' => 'Tuntutan lunch berjaya dihantar.',
-                'claims' => $createdClaims
+                'claims' => $createdClaims,
             ], 201);
         }
     }
@@ -424,7 +436,7 @@ class ApiController extends Controller
      */
     public function tuntutanUpdateStatus(Request $request, Tuntutan $tuntutan)
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Hanya Superadmin dibenarkan mengurus status tuntutan.'], 403);
         }
 
@@ -452,11 +464,11 @@ class ApiController extends Controller
      */
     public function penggunaList()
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
-        $users = User::with('roles')->orderBy('name')->get()->map(function($user) {
+        $users = User::with('roles')->orderBy('name')->get()->map(function ($user) {
             return [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -474,7 +486,7 @@ class ApiController extends Controller
      */
     public function penggunaStore(Request $request)
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
@@ -501,7 +513,7 @@ class ApiController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $request->role,
-            ]
+            ],
         ]);
 
         return response()->json([
@@ -509,7 +521,7 @@ class ApiController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $request->role,
-            'created_at' => $user->created_at->format('Y-m-d H:i:s')
+            'created_at' => $user->created_at->format('Y-m-d H:i:s'),
         ], 201);
     }
 
@@ -518,13 +530,13 @@ class ApiController extends Controller
      */
     public function penggunaUpdate(Request $request, User $user)
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
             'password' => 'nullable|string|min:8',
             'role' => 'required|string|in:Superadmin,Stocker,Tracker',
         ]);
@@ -552,7 +564,7 @@ class ApiController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $request->role,
-            ]
+            ],
         ]);
 
         return response()->json([
@@ -560,7 +572,7 @@ class ApiController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $request->role,
-            'created_at' => $user->created_at->format('Y-m-d H:i:s')
+            'created_at' => $user->created_at->format('Y-m-d H:i:s'),
         ]);
     }
 
@@ -569,7 +581,7 @@ class ApiController extends Controller
      */
     public function penggunaDestroy(User $user)
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
@@ -600,7 +612,7 @@ class ApiController extends Controller
      */
     public function logAktivitiList()
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             return response()->json(['message' => 'Tiada kebenaran.'], 403);
         }
 
@@ -608,7 +620,7 @@ class ApiController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(150)
             ->get()
-            ->map(function($log) {
+            ->map(function ($log) {
                 return [
                     'id' => $log->id,
                     'created_at' => $log->created_at->format('Y-m-d H:i:s'),
@@ -623,4 +635,16 @@ class ApiController extends Controller
         return response()->json($logs);
     }
 
+    private function resolveKategoriId(Request $request): void
+    {
+        if ($request->filled('kategori_id') || ! $request->filled('kategori')) {
+            return;
+        }
+
+        $categoryId = Kategori::where('nama', $request->input('kategori'))->value('id');
+
+        if ($categoryId) {
+            $request->merge(['kategori_id' => $categoryId]);
+        }
+    }
 }

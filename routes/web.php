@@ -1,12 +1,12 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\InventoriController;
-use App\Http\Controllers\TuntutanController;
-use App\Http\Controllers\PenggunaController;
+use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\LogAktivitiController;
+use App\Http\Controllers\PenggunaController;
+use App\Http\Controllers\TuntutanController;
+use Illuminate\Support\Facades\Route;
 
 // Laluan Log Masuk / Keluar
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -15,7 +15,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Halaman utama dan ciri-ciri aplikasi yang dilindungi oleh middleware auth
 Route::middleware(['auth'])->group(function () {
-    
+
     // Redirect halaman utama ke senarai inventori
     Route::get('/', function () {
         return redirect()->route('inventori.index');
@@ -36,9 +36,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Laluan Khas untuk Superadmin sahaja
     Route::middleware(['role:Superadmin'])->group(function () {
+        // Tetapan kategori inventori
+        Route::put('/kategori', [KategoriController::class, 'updateAll'])
+            ->name('kategori.update-all');
+        Route::resource('kategori', KategoriController::class)
+            ->only(['index', 'store', 'destroy']);
+
         // Pengurusan Akaun Pengguna
         Route::resource('pengguna', PenggunaController::class);
-        
+
         // Log Aktiviti Sistem
         Route::get('/log-aktiviti', [LogAktivitiController::class, 'index'])->name('log_aktiviti.index');
     });

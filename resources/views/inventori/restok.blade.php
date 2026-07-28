@@ -24,7 +24,7 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Nama Barang</th>
+                    <th>Nama/Jenama</th>
                     <th>Kategori</th>
                     <th>Had Ambang</th>
                     <th style="text-align: right;">Tindakan</th>
@@ -33,7 +33,7 @@
             <tbody>
                 @forelse($habisStok as $item)
                 <tr>
-                    <td data-label="Nama Barang"><strong>{{ $item->nama_item }}</strong></td>
+                    <td data-label="Nama/Jenama"><strong>{{ $item->nama_item }}</strong></td>
                     <td data-label="Kategori"><span class="badge badge-primary">{{ $item->kategori }}</span></td>
                     <td data-label="Had Ambang">{{ $item->had_ambang }} unit</td>
                     <td data-label="Tindakan" style="text-align: right;">
@@ -68,7 +68,7 @@
             </div>
             <div class="mobile-card-stats">
                 <div class="stat-box">
-                    <span class="stat-label">Baki Keseluruhan</span>
+                    <span class="stat-label">Baki</span>
                     <span class="stat-val"><strong style="color: var(--color-danger);">0</strong> unit</span>
                 </div>
                 <div class="stat-box">
@@ -105,10 +105,9 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Nama Barang</th>
+                    <th>Nama/Jenama</th>
                     <th>Kategori</th>
-                    <th>Baki Keseluruhan</th>
-                    <th>Baki Belum Dibuka</th>
+                    <th>Baki</th>
                     <th>Had Ambang</th>
                     <th style="text-align: right;">Tindakan</th>
                 </tr>
@@ -116,10 +115,9 @@
             <tbody>
                 @forelse($bawahAmbang as $item)
                 <tr>
-                    <td data-label="Nama Barang"><strong>{{ $item->nama_item }}</strong></td>
+                    <td data-label="Nama/Jenama"><strong>{{ $item->nama_item }}</strong></td>
                     <td data-label="Kategori"><span class="badge badge-primary">{{ $item->kategori }}</span></td>
-                    <td data-label="Baki Keseluruhan"><span style="color: var(--color-warning); font-weight: 600;">{{ $item->jumlah_keseluruhan }}</span> unit</td>
-                    <td data-label="Baki Belum Dibuka">{{ $item->jumlah_belum_dibuka }} unit</td>
+                    <td data-label="Baki"><span style="color: var(--color-warning); font-weight: 600;">{{ $item->jumlah_belum_dibuka }}</span> unit</td>
                     <td data-label="Had Ambang">{{ $item->had_ambang }} unit</td>
                     <td data-label="Tindakan" style="text-align: right;">
                         <a href="{{ route('inventori.edit', $item->id) }}" class="btn btn-secondary btn-sm">
@@ -129,7 +127,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                         Tiada barangan di bawah had ambang restok.
                     </td>
                 </tr>
@@ -153,12 +151,8 @@
             </div>
             <div class="mobile-card-stats">
                 <div class="stat-box">
-                    <span class="stat-label">Baki Keseluruhan</span>
-                    <span class="stat-val"><strong style="color: var(--color-warning);">{{ $item->jumlah_keseluruhan }}</strong> unit</span>
-                </div>
-                <div class="stat-box">
-                    <span class="stat-label">Belum Dibuka</span>
-                    <span class="stat-val"><strong>{{ $item->jumlah_belum_dibuka }}</strong> unit</span>
+                    <span class="stat-label">Baki</span>
+                    <span class="stat-val"><strong style="color: var(--color-warning);">{{ $item->jumlah_belum_dibuka }}</strong> unit</span>
                 </div>
                 <div class="stat-box baki-box">
                     <span class="stat-label">Had Ambang</span>

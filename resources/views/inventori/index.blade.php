@@ -23,7 +23,7 @@
         }
         .mobile-card-stats {
             display: grid !important;
-            grid-template-columns: 1fr 1fr 1fr !important;
+            grid-template-columns: 1fr !important;
             gap: 8px !important;
             text-align: center !important;
         }
@@ -57,7 +57,7 @@
     <form action="{{ route('inventori.index') }}" method="GET" class="inventori-filter-form">
         <div class="inventori-search-row">
             <div class="inventori-search-input">
-                <input type="text" name="carian" class="form-control" placeholder="Cari nama barang..." value="{{ request('carian') }}">
+                <input type="text" name="carian" class="form-control" placeholder="Cari Nama/Jenama..." value="{{ request('carian') }}">
             </div>
             <button type="submit" class="btn btn-secondary inventori-submit-btn">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -68,7 +68,7 @@
             <select name="kategori" class="form-control">
                 <option value="">Semua Kategori</option>
                 @foreach($kategoriSenarai as $kat)
-                    <option value="{{ $kat }}" {{ request('kategori') == $kat ? 'selected' : '' }}>{{ $kat }}</option>
+                    <option value="{{ $kat->id }}" {{ (string) request('kategori') === (string) $kat->id ? 'selected' : '' }}>{{ $kat->nama }}</option>
                 @endforeach
             </select>
             @if(request('carian') || request('kategori'))
@@ -85,11 +85,9 @@
             <thead>
                 <tr>
                     <th style="width: 60px;">No.</th>
-                    <th>Barang</th>
-                    <th>Variant</th>
+                    <th>Nama/Jenama</th>
                     <th>Kategori</th>
-                    <th>Jumlah Keseluruhan</th>
-                    <th>Belum Dibuka</th>
+                    <th>Baki</th>
                     <th>Tarikh Luput</th>
                     <th style="text-align: right;">Tindakan</th>
                 </tr>
@@ -103,31 +101,21 @@
                     <td data-label="Nama Item">
                         <div class="table-item-info">
                             <div style="font-weight: 600; font-size: 1rem; color: #fff;">{{ $item->nama_item }}</div>
-                            @if($item->jenama)
+                            @if($item->jenis || $item->capacity)
                                 <div style="font-size: 0.78rem; color: var(--text-dark); margin-top: 2px;">
-                                    <span>Jenama: <strong>{{ $item->jenama }}</strong></span>
+                                    @if($item->jenis)<strong>{{ $item->jenis }}</strong>@endif
+                                    @if($item->jenis && $item->capacity)<span> • </span>@endif
+                                    @if($item->capacity)<strong>{{ $item->capacity }}</strong>@endif
                                 </div>
                             @endif
                         </div>
                     </td>
-                    <td data-label="Variant">
-                        <div style="font-weight: 600; color: #fff; font-size: 0.95rem;">{{ $item->jenis ?? '-' }}</div>
-                        @if($item->capacity)
-                            <div style="font-size: 0.78rem; color: var(--text-dark); margin-top: 2px;">
-                                <span>Kapasiti: <strong>{{ $item->capacity }}</strong></span>
-                            </div>
-                        @endif
-                    </td>
                     <td data-label="Kategori">
                         <span class="badge badge-primary">{{ $item->kategori }}</span>
                     </td>
-                    <td data-label="Jumlah Keseluruhan">
-                        <div><strong style="font-size: 1.1rem; color: #fff;">{{ $item->jumlah_keseluruhan }}</strong> unit</div>
-                        <div style="font-size: 0.78rem; color: var(--text-dark); margin-top: 2px;">Telah dibuka: <strong>{{ $item->jumlah_keseluruhan - $item->jumlah_belum_dibuka }}</strong> unit</div>
-                    </td>
-                    <td data-label="Belum Dibuka">
-                        @if($item->jumlah_belum_dibuka == 0 && $item->jumlah_keseluruhan > 0)
-                            <span class="badge badge-danger">0 Unit (Semua Dibuka)</span>
+                    <td data-label="Baki">
+                        @if($item->jumlah_belum_dibuka == 0)
+                            <span class="badge badge-danger">0 Unit (Habis Stok)</span>
                         @else
                             <strong style="color: #fff;">{{ $item->jumlah_belum_dibuka }}</strong> unit
                         @endif
@@ -172,7 +160,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">
                         <i class="fa-solid fa-box-open" style="font-size: 3rem; margin-bottom: 1rem; display: block; color: var(--text-dark);"></i>
                         Tiada rekod inventori dijumpai.
                     </td>
@@ -192,6 +180,13 @@
                         {{ $item->nama_item }}
                         <i class="fa-solid fa-chevron-down toggle-icon" style="font-size: 0.85rem; color: var(--text-dark); transition: transform 0.2s;"></i>
                     </span>
+                    @if($item->jenis || $item->capacity)
+                        <span style="font-size: 0.72rem; color: var(--text-dark); margin-top: 3px;">
+                            @if($item->jenis)<strong>{{ $item->jenis }}</strong>@endif
+                            @if($item->jenis && $item->capacity) • @endif
+                            @if($item->capacity)<strong>{{ $item->capacity }}</strong>@endif
+                        </span>
+                    @endif
                 </div>
                 <div class="item-expiry" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                     @if($item->jejak_luput && $item->tarikh_luput)
@@ -215,34 +210,18 @@
             </div>
             <div class="mobile-card-stats">
                 <div class="stat-box">
-                    <span class="stat-label">Jumlah</span>
-                    <span class="stat-val"><strong>{{ $item->jumlah_keseluruhan }}</strong> unit</span>
-                </div>
-                <div class="stat-box">
-                    <span class="stat-label">Belum Dibuka</span>
+                    <span class="stat-label">Baki</span>
                     <span class="stat-val">
-                        @if($item->jumlah_belum_dibuka == 0 && $item->jumlah_keseluruhan > 0)
+                        @if($item->jumlah_belum_dibuka == 0)
                             <span class="badge badge-danger" style="padding: 2px 6px; font-size: 0.7rem; font-weight: 500;">0 Unit</span>
                         @else
                             <strong>{{ $item->jumlah_belum_dibuka }}</strong> unit
                         @endif
                     </span>
                 </div>
-                <div class="stat-box">
-                    <span class="stat-label">Dibuka</span>
-                    <span class="stat-val"><strong>{{ $item->jumlah_keseluruhan - $item->jumlah_belum_dibuka }}</strong> unit</span>
-                </div>
             </div>
 
             <div class="mobile-card-body">
-                @if($item->jenama || $item->jenis || $item->capacity)
-                <div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; padding-bottom: 2px; border-top: 1px solid rgba(255, 255, 255, 0.04); padding-top: 8px; margin-top: 2px;">
-                    @if($item->jenama)<span style="color: var(--text-dark);">Jenama: <strong style="color: var(--text-muted);">{{ $item->jenama }}</strong></span>@endif
-                    @if($item->jenis)<span style="color: var(--text-dark);">Varian: <strong style="color: var(--text-muted);">{{ $item->jenis }}</strong></span>@endif
-                    @if($item->capacity)<span style="color: var(--text-dark);">Kapasiti: <strong style="color: var(--text-muted);">{{ $item->capacity }}</strong></span>@endif
-                </div>
-                @endif
-                
                 <div class="mobile-card-actions">
                     <div></div>
                     <div class="action-buttons">
@@ -289,12 +268,7 @@
             <input type="hidden" name="peratus_baki" id="adj_peratus" value="100">
 
             <div class="form-group">
-                <label class="form-label">Jumlah Keseluruhan (Unit)</label>
-                <input type="number" name="jumlah_keseluruhan" id="adj_keseluruhan" class="form-control" min="0" required onchange="hadkanBelumDibuka()">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Jumlah Belum Dibuka (Unit)</label>
+                <label class="form-label">Baki (Unit)</label>
                 <input type="number" name="jumlah_belum_dibuka" id="adj_belum_dibuka" class="form-control" min="0" required>
             </div>
             
@@ -317,27 +291,14 @@
     function bukaModalPelarasan(item) {
         document.getElementById('modalTitle').innerText = 'Selaraskan: ' + item.nama_item;
         document.getElementById('formPelarasan').action = '/inventori/' + item.id + '/adjust';
-        document.getElementById('adj_keseluruhan').value = item.jumlah_keseluruhan;
         document.getElementById('adj_belum_dibuka').value = item.jumlah_belum_dibuka;
         document.getElementById('adj_peratus').value = item.peratus_baki;
-        
-        // set limit input
-        document.getElementById('adj_belum_dibuka').max = item.jumlah_keseluruhan;
-        
+
         document.getElementById('modalPelarasan').style.display = 'flex';
     }
     
     function tutupModalPelarasan() {
         document.getElementById('modalPelarasan').style.display = 'none';
-    }
-    
-    function hadkanBelumDibuka() {
-        const keseluruhan = parseInt(document.getElementById('adj_keseluruhan').value) || 0;
-        const belumDibukaInput = document.getElementById('adj_belum_dibuka');
-        belumDibukaInput.max = keseluruhan;
-        if (parseInt(belumDibukaInput.value) > keseluruhan) {
-            belumDibukaInput.value = keseluruhan;
-        }
     }
 </script>
 @endsection

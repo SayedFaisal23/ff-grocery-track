@@ -11,11 +11,9 @@ class Inventori extends Model
 
     protected $fillable = [
         'nama_item',
-        'kategori',
-        'jenama',
+        'kategori_id',
         'jenis',
         'capacity',
-        'jumlah_keseluruhan',
         'jumlah_belum_dibuka',
         'peratus_baki',
         'tarikh_luput',
@@ -28,11 +26,24 @@ class Inventori extends Model
     protected $casts = [
         'jejak_luput' => 'boolean',
         'tarikh_luput' => 'date',
-        'jumlah_keseluruhan' => 'integer',
         'jumlah_belum_dibuka' => 'integer',
         'peratus_baki' => 'integer',
         'had_ambang' => 'integer',
     ];
+
+    protected $appends = [
+        'kategori',
+    ];
+
+    public function kategoriPreset(): BelongsTo
+    {
+        return $this->belongsTo(Kategori::class, 'kategori_id');
+    }
+
+    public function getKategoriAttribute(): ?string
+    {
+        return $this->kategoriPreset?->nama;
+    }
 
     /**
      * Get the user who created the item.

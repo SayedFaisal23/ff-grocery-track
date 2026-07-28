@@ -75,6 +75,11 @@
                 @endhasanyrole
                 
                 @role('Superadmin')
+                <a href="{{ route('kategori.index') }}" class="nav-item {{ Request::routeIs('kategori.*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-tags"></i>
+                    <span>Pengurusan Kategori</span>
+                </a>
+
                 <a href="{{ route('pengguna.index') }}" class="nav-item {{ Request::routeIs('pengguna.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-users"></i>
                     <span>Pengurusan Pengguna</span>

@@ -3,55 +3,54 @@
 namespace Tests\Feature;
 
 use App\Models\Inventori;
+use App\Models\Kategori;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schedule;
 use Tests\TestCase;
 
 class TelegramRestockAlertTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Kategori $kategori;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Setup default configuration
         Config::set('services.telegram.bot_token', 'test_bot_token');
         Config::set('services.telegram.chat_id', 'test_chat_id');
+
+        $this->kategori = Kategori::create(['nama' => 'Ujian']);
     }
 
-    public function test_command_sends_telegram_message_when_items_are_below_threshold(): void
+    public function test_command_sends_reminders_for_zero_and_below_threshold_items(): void
     {
         Http::fake([
             'https://api.telegram.org/bot*' => Http::response(['ok' => true], 200),
         ]);
 
-        // Item 1: jumlah_keseluruhan <= had_ambang (1 <= 2)
         Inventori::create([
             'nama_item' => 'Apple Milk',
-            'kategori' => 'Tenusu',
-            'jumlah_keseluruhan' => 1,
-            'jumlah_belum_dibuka' => 1,
-            'peratus_baki' => 50,
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 0,
+            'peratus_baki' => 0,
             'had_ambang' => 2,
         ]);
 
-        // Item 2: jumlah_belum_dibuka <= had_ambang (1 <= 3)
         Inventori::create([
             'nama_item' => 'Gardenia Bread',
-            'kategori' => 'Roti',
-            'jumlah_keseluruhan' => 5,
+            'kategori_id' => $this->kategori->id,
             'jumlah_belum_dibuka' => 1,
             'peratus_baki' => 80,
             'had_ambang' => 3,
         ]);
 
-        // Item 3: Above threshold (5 > 2 and 5 > 2)
         Inventori::create([
             'nama_item' => 'Coca Cola',
-            'kategori' => 'Minuman',
-            'jumlah_keseluruhan' => 5,
+            'kategori_id' => $this->kategori->id,
             'jumlah_belum_dibuka' => 5,
             'peratus_baki' => 100,
             'had_ambang' => 2,
@@ -61,24 +60,24 @@ class TelegramRestockAlertTest extends TestCase
             ->assertExitCode(0);
 
         Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'sendMessage') &&
-                $request['chat_id'] === 'test_chat_id' &&
-                str_contains($request['text'], 'FFGrocery Restock List ⚠️') &&
-                str_contains($request['text'], '• Apple Milk') &&
-                str_contains($request['text'], '• Gardenia Bread') &&
-                !str_contains($request['text'], '• Coca Cola');
+            return str_contains($request->url(), 'sendMessage')
+                && $request['chat_id'] === 'test_chat_id'
+                && str_contains($request['text'], 'FFGrocery — Peringatan Restok')
+                && str_contains($request['text'], 'HABIS STOK')
+                && str_contains($request['text'], 'Apple Milk — Baki: 0 unit')
+                && str_contains($request['text'], 'BAKI DI BAWAH HAD')
+                && str_contains($request['text'], 'Gardenia Bread — Baki: 1 unit | Had: 3 unit')
+                && ! str_contains($request['text'], 'Coca Cola');
         });
     }
 
-    public function test_command_does_not_send_telegram_message_when_no_items_below_threshold(): void
+    public function test_command_does_not_send_when_every_item_is_above_threshold(): void
     {
         Http::fake();
 
-        // Item: Above threshold (5 > 2 and 5 > 2)
         Inventori::create([
             'nama_item' => 'Coca Cola',
-            'kategori' => 'Minuman',
-            'jumlah_keseluruhan' => 5,
+            'kategori_id' => $this->kategori->id,
             'jumlah_belum_dibuka' => 5,
             'peratus_baki' => 100,
             'had_ambang' => 2,
@@ -101,5 +100,15 @@ class TelegramRestockAlertTest extends TestCase
             ->assertExitCode(1);
 
         Http::assertNothingSent();
+    }
+
+    public function test_command_is_scheduled_for_weekdays_at_6pm_malaysia_time(): void
+    {
+        $event = collect(Schedule::events())
+            ->first(fn ($scheduledEvent) => str_contains($scheduledEvent->command, 'telegram:send-restock-alert'));
+
+        $this->assertNotNull($event);
+        $this->assertSame('0 18 * * 1-5', $event->expression);
+        $this->assertSame('Asia/Kuala_Lumpur', $event->timezone);
     }
 }

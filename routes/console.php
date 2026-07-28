@@ -8,5 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('telegram:send-restock-alert')->weekdays()->at('18:00');
-
+Schedule::command('telegram:send-restock-alert')
+    ->weekdays()
+    ->at('18:00')
+    ->timezone('Asia/Kuala_Lumpur');
