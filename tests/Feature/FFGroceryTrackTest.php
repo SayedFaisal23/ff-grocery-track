@@ -406,6 +406,26 @@ class FFGroceryTrackTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id, 'nama' => 'Minuman']);
     }
 
+    public function test_category_in_use_shows_a_clear_deletion_explanation(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        Inventori::create([
+            'nama_item' => 'Susu Ujian',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 1,
+            'peratus_baki' => 100,
+            'had_ambang' => 1,
+        ]);
+
+        $this->actingAs($superadmin)
+            ->get('/kategori')
+            ->assertOk()
+            ->assertSee('Tidak boleh dipadam: digunakan oleh item inventori')
+            ->assertDontSee('title="Padam kategori"', false);
+    }
+
     public function test_application_uses_malaysia_time(): void
     {
         $this->assertSame('Asia/Kuala_Lumpur', config('app.timezone'));

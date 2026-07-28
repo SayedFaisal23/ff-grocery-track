@@ -76,22 +76,27 @@
                             <span class="badge badge-primary">{{ $category->inventori_count }} item</span>
                         </td>
                         <td style="text-align: right;">
-                            <form
-                                action="{{ route('kategori.destroy', $category) }}"
-                                method="POST"
-                                onsubmit="return confirm('Adakah anda pasti mahu memadam kategori ini?')"
-                            >
-                                @csrf
-                                @method('DELETE')
-                                <button
-                                    type="submit"
-                                    class="btn btn-danger btn-sm"
-                                    title="Padam kategori"
-                                    {{ $category->inventori_count > 0 ? 'disabled' : '' }}
+                            @if($category->inventori_count > 0)
+                                <span
+                                    title="Kategori ini masih digunakan oleh item inventori."
+                                    style="color: var(--text-muted); font-size: 0.8rem;"
                                 >
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </form>
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    Tidak boleh dipadam: digunakan oleh item inventori
+                                </span>
+                            @else
+                                <form
+                                    action="{{ route('kategori.destroy', $category) }}"
+                                    method="POST"
+                                    onsubmit="return confirm('Adakah anda pasti mahu memadam kategori ini?')"
+                                >
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Padam kategori">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @empty
