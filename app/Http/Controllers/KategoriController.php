@@ -82,7 +82,7 @@ class KategoriController extends Controller
 
             $targetNames = $categories
                 ->mapWithKeys(fn (Kategori $category) => [(string) $category->id => $category->nama])
-                ->merge($normalizedCategories);
+                ->replace($normalizedCategories);
 
             $normalizedNames = $targetNames->map(fn ($name) => mb_strtolower($name, 'UTF-8'));
 

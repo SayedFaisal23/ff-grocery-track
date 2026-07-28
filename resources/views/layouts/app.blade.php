@@ -167,7 +167,11 @@
         });
 
         document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', () => {
+            form.addEventListener('submit', (event) => {
+                if (event.defaultPrevented) {
+                    return;
+                }
+
                 const overlay = document.getElementById('loadingOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';

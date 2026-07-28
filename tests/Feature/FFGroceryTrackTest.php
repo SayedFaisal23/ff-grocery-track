@@ -386,6 +386,31 @@ class FFGroceryTrackTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id, 'nama' => 'Minuman']);
     }
 
+    public function test_bulk_category_update_accepts_unique_names_when_another_category_is_unchanged(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $category = Kategori::create(['nama' => 'Minuman']);
+
+        $this->actingAs($superadmin)
+            ->put('/kategori', [
+                'categories' => [
+                    $this->kategori->id => 'Produk Tenusu',
+                    $category->id => 'Minuman',
+                ],
+            ])
+            ->assertRedirect('/kategori')
+            ->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('categories', ['id' => $this->kategori->id, 'nama' => 'Produk Tenusu']);
+        $this->assertDatabaseHas('categories', ['id' => $category->id, 'nama' => 'Minuman']);
+    }
+
+    public function test_application_uses_malaysia_time(): void
+    {
+        $this->assertSame('Asia/Kuala_Lumpur', config('app.timezone'));
+    }
+
     public function test_non_admin_cannot_manage_category_presets(): void
     {
         $tracker = User::factory()->create();

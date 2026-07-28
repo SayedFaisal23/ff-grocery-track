@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<div class="card" style="max-width: 760px; margin-bottom: 1.5rem;">
+<div class="card" style="margin-bottom: 1.5rem;">
     <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Tambah Kategori</h2>
     <form action="{{ route('kategori.store') }}" method="POST" style="display: flex; gap: 10px; align-items: flex-start;">
         @csrf
@@ -35,7 +35,7 @@
     </form>
 </div>
 
-<div class="card inventori-list-card" style="max-width: 760px; padding: 0;">
+<div class="card inventori-list-card" style="padding: 0;">
     <form id="kategoriBulkForm" action="{{ route('kategori.update-all') }}" method="POST">
         @csrf
         @method('PUT')
