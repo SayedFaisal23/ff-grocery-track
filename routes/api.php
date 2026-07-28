@@ -1,11 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApiController;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-
 use App\Http\Middleware\AuthenticateApi;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,14 +15,15 @@ Route::post('/login', [ApiController::class, 'login']);
 
 // Laluan Dilindungi (Authenticated API routes)
 Route::middleware([AuthenticateApi::class])->group(function () {
-    
+
     Route::post('/logout', [ApiController::class, 'logout']);
     Route::get('/user', [ApiController::class, 'user']);
 
     // Ciri-ciri utama (Semua peranan boleh capai mengikut sekatan tertentu)
     Route::get('/inventori', [ApiController::class, 'inventoriList']);
+    Route::get('/kategori', [ApiController::class, 'kategoriList']);
     Route::get('/inventori/restok', [ApiController::class, 'restokList']);
-    
+
     // Keizinan Tambah / Edit / Padam Inventori
     Route::post('/inventori', [ApiController::class, 'inventoriStore']);
     Route::put('/inventori/{inventori}', [ApiController::class, 'inventoriUpdate']);
@@ -42,6 +40,6 @@ Route::middleware([AuthenticateApi::class])->group(function () {
     Route::post('/pengguna', [ApiController::class, 'penggunaStore']);
     Route::put('/pengguna/{user}', [ApiController::class, 'penggunaUpdate']);
     Route::delete('/pengguna/{user}', [ApiController::class, 'penggunaDestroy']);
-    
+
     Route::get('/log-aktiviti', [ApiController::class, 'logAktivitiList']);
 });

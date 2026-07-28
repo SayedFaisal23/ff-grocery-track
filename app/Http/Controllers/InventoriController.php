@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventori;
+use App\Models\Kategori;
 use App\Models\LogAktiviti;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class InventoriController extends Controller
@@ -16,20 +16,20 @@ class InventoriController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Inventori::query();
+        $query = Inventori::with('kategoriPreset');
 
         // Carian nama item
         if ($request->filled('carian')) {
-            $query->where('nama_item', 'like', '%' . $request->carian . '%');
+            $query->where('nama_item', 'like', '%'.$request->carian.'%');
         }
 
         // Penapisan kategori
         if ($request->filled('kategori')) {
-            $query->where('kategori', $request->kategori);
+            $query->where('kategori_id', $request->kategori);
         }
 
         $items = $query->orderBy('nama_item', 'asc')->get();
-        $kategoriSenarai = Inventori::distinct()->pluck('kategori');
+        $kategoriSenarai = Kategori::orderBy('nama')->get();
 
         return view('inventori.index', compact('items', 'kategoriSenarai'));
     }
@@ -40,14 +40,16 @@ class InventoriController extends Controller
     public function restockList()
     {
         // Barang yang habis stok sepenuhnya
-        $habisStok = Inventori::where('jumlah_keseluruhan', 0)->get();
+        $habisStok = Inventori::with('kategoriPreset')
+            ->where('jumlah_belum_dibuka', 0)
+            ->orderBy('nama_item')
+            ->get();
 
         // Barang yang di bawah had ambang
-        $bawahAmbang = Inventori::where('jumlah_keseluruhan', '>', 0)
-            ->where(function($query) {
-                $query->whereRaw('jumlah_keseluruhan <= had_ambang')
-                      ->orWhereRaw('jumlah_belum_dibuka <= had_ambang');
-            })
+        $bawahAmbang = Inventori::with('kategoriPreset')
+            ->where('jumlah_belum_dibuka', '>', 0)
+            ->whereColumn('jumlah_belum_dibuka', '<=', 'had_ambang')
+            ->orderBy('nama_item')
             ->get();
 
         return view('inventori.restok', compact('habisStok', 'bawahAmbang'));
@@ -59,10 +61,12 @@ class InventoriController extends Controller
     public function create()
     {
         // Hanya Superadmin, Stocker dan Tracker boleh tambah item baharu
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             abort(403, 'Anda tidak mempunyai kebenaran untuk menambah item.');
         }
-        return view('inventori.create');
+        $categories = Kategori::orderBy('nama')->get();
+
+        return view('inventori.create', compact('categories'));
     }
 
     /**
@@ -70,28 +74,25 @@ class InventoriController extends Controller
      */
     public function store(Request $request)
     {
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             abort(403);
         }
 
         $validated = $request->validate([
             'nama_item' => 'required|string|max:255',
-            'kategori' => 'required|string|max:255',
-            'jenama' => 'nullable|string|max:255',
+            'kategori_id' => 'required|integer|exists:categories,id',
             'jenis' => 'nullable|string|max:255',
             'capacity' => 'nullable|string|max:255',
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
             'tarikh_luput' => 'nullable|date',
             'jejak_luput' => 'nullable|boolean',
             'had_ambang' => 'required|integer|min:0',
         ], [
-            'nama_item.required' => 'Sila masukkan nama item.',
-            'kategori.required' => 'Sila masukkan kategori.',
-            'jumlah_keseluruhan.required' => 'Sila masukkan jumlah keseluruhan.',
-            'jumlah_belum_dibuka.required' => 'Sila masukkan jumlah belum dibuka.',
-            'jumlah_belum_dibuka.lte' => 'Jumlah belum dibuka tidak boleh melebihi jumlah keseluruhan.',
+            'nama_item.required' => 'Sila masukkan Nama/Jenama.',
+            'kategori_id.required' => 'Sila pilih kategori.',
+            'kategori_id.exists' => 'Kategori yang dipilih tidak sah.',
+            'jumlah_belum_dibuka.required' => 'Sila masukkan baki.',
             'peratus_baki.between' => 'Peratus baki mestilah di antara 0 hingga 100.',
             'had_ambang.required' => 'Sila tetapkan had ambang restok.',
         ]);
@@ -127,7 +128,9 @@ class InventoriController extends Controller
      */
     public function edit(Inventori $inventori)
     {
-        return view('inventori.edit', compact('inventori'));
+        $categories = Kategori::orderBy('nama')->get();
+
+        return view('inventori.edit', compact('inventori', 'categories'));
     }
 
     /**
@@ -137,22 +140,19 @@ class InventoriController extends Controller
     {
         $validated = $request->validate([
             'nama_item' => 'required|string|max:255',
-            'kategori' => 'required|string|max:255',
-            'jenama' => 'nullable|string|max:255',
+            'kategori_id' => 'required|integer|exists:categories,id',
             'jenis' => 'nullable|string|max:255',
             'capacity' => 'nullable|string|max:255',
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
             'tarikh_luput' => 'nullable|date',
             'jejak_luput' => 'nullable|boolean',
             'had_ambang' => 'required|integer|min:0',
         ], [
-            'nama_item.required' => 'Sila masukkan nama item.',
-            'kategori.required' => 'Sila masukkan kategori.',
-            'jumlah_keseluruhan.required' => 'Sila masukkan jumlah keseluruhan.',
-            'jumlah_belum_dibuka.required' => 'Sila masukkan jumlah belum dibuka.',
-            'jumlah_belum_dibuka.lte' => 'Jumlah belum dibuka tidak boleh melebihi jumlah keseluruhan.',
+            'nama_item.required' => 'Sila masukkan Nama/Jenama.',
+            'kategori_id.required' => 'Sila pilih kategori.',
+            'kategori_id.exists' => 'Kategori yang dipilih tidak sah.',
+            'jumlah_belum_dibuka.required' => 'Sila masukkan baki.',
             'peratus_baki.between' => 'Peratus baki mestilah di antara 0 hingga 100.',
             'had_ambang.required' => 'Sila tetapkan had ambang restok.',
         ]);
@@ -165,10 +165,10 @@ class InventoriController extends Controller
 
         $inventori->update($validated);
 
-        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0 && $inventori->jumlah_keseluruhan > 0) {
+        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0) {
             LogAktiviti::create([
                 'user_id' => Auth::id(),
-                'aktiviti' => "Membuka unit terakhir belum dibuka untuk item: {$inventori->nama_item}.",
+                'aktiviti' => "Baki item mencapai kosong: {$inventori->nama_item}.",
                 'item_id' => $inventori->id,
                 'data_lama' => $oldData,
                 'data_baru' => $inventori->toArray(),
@@ -193,8 +193,7 @@ class InventoriController extends Controller
     public function adjustStock(Request $request, Inventori $inventori)
     {
         $request->validate([
-            'jumlah_keseluruhan' => 'required|integer|min:0',
-            'jumlah_belum_dibuka' => 'required|integer|min:0|lte:jumlah_keseluruhan',
+            'jumlah_belum_dibuka' => 'required|integer|min:0',
             'peratus_baki' => 'required|integer|between:0,100',
         ]);
 
@@ -202,16 +201,15 @@ class InventoriController extends Controller
         $oldBelumDibuka = $inventori->jumlah_belum_dibuka;
 
         $inventori->update([
-            'jumlah_keseluruhan' => $request->jumlah_keseluruhan,
             'jumlah_belum_dibuka' => $request->jumlah_belum_dibuka,
             'peratus_baki' => $request->peratus_baki,
             'dikemaskini_oleh' => Auth::id(),
         ]);
 
-        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0 && $inventori->jumlah_keseluruhan > 0) {
+        if ($inventori->jumlah_belum_dibuka === 0 && $oldBelumDibuka > 0) {
             LogAktiviti::create([
                 'user_id' => Auth::id(),
-                'aktiviti' => "Membuka unit terakhir belum dibuka untuk item: {$inventori->nama_item}.",
+                'aktiviti' => "Baki item mencapai kosong: {$inventori->nama_item}.",
                 'item_id' => $inventori->id,
                 'data_lama' => $oldData,
                 'data_baru' => $inventori->toArray(),
@@ -235,7 +233,7 @@ class InventoriController extends Controller
     public function destroy(Inventori $inventori)
     {
         // Hanya Superadmin, Stocker dan Tracker boleh padam item
-        if (!Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
+        if (! Auth::user()->hasAnyRole(['Superadmin', 'Stocker', 'Tracker'])) {
             abort(403, 'Anda tidak mempunyai kebenaran untuk memadam item.');
         }
 
@@ -254,5 +252,4 @@ class InventoriController extends Controller
 
         return redirect()->route('inventori.index')->with('success', 'Barang berjaya dipadam.');
     }
-
 }

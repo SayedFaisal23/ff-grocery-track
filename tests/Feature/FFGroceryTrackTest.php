@@ -2,16 +2,22 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Inventori;
+use App\Models\Kategori;
 use App\Models\Tuntutan;
-use Spatie\Permission\Models\Role;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class FFGroceryTrackTest extends TestCase
 {
     use RefreshDatabase;
+
+    private Kategori $kategori;
 
     protected function setUp(): void
     {
@@ -21,6 +27,8 @@ class FFGroceryTrackTest extends TestCase
         Role::create(['name' => 'Superadmin']);
         Role::create(['name' => 'Stocker']);
         Role::create(['name' => 'Tracker']);
+
+        $this->kategori = Kategori::create(['nama' => 'Tenusu']);
     }
 
     public function test_login_page_renders_successfully(): void
@@ -87,8 +95,7 @@ class FFGroceryTrackTest extends TestCase
         // Test create item
         $responseCreate = $this->actingAs($tracker)->post('/inventori', [
             'nama_item' => 'Tracker Milk',
-            'kategori' => 'Tenusu',
-            'jumlah_keseluruhan' => 5,
+            'kategori_id' => $this->kategori->id,
             'jumlah_belum_dibuka' => 5,
             'peratus_baki' => 100,
             'had_ambang' => 2,
@@ -99,7 +106,7 @@ class FFGroceryTrackTest extends TestCase
         $item = Inventori::where('nama_item', 'Tracker Milk')->first();
 
         // Test delete item
-        $responseDelete = $this->actingAs($tracker)->delete('/inventori/' . $item->id);
+        $responseDelete = $this->actingAs($tracker)->delete('/inventori/'.$item->id);
         $responseDelete->assertRedirect('/inventori');
         $this->assertDatabaseMissing('inventori', ['id' => $item->id]);
     }
@@ -194,36 +201,36 @@ class FFGroceryTrackTest extends TestCase
             'tag' => 'Lunch',
             'week' => '2026-W29',
             'lunch_dates' => [
-                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19'
+                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
             ],
             'lunch_butirans' => [
-                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim'
+                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim',
             ],
             'lunch_pax' => [
-                0, 0, 0, 0, 0, 0, 0
+                0, 0, 0, 0, 0, 0, 0,
             ],
             'lunch_hargas' => [
-                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50
+                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50,
             ],
         ]);
         $response->assertSessionHasErrors(['lunch_pax']);
 
         // 2. Submit with future date
-        $futureDate = \Carbon\Carbon::now()->addYear()->format('Y-m-d');
+        $futureDate = Carbon::now()->addYear()->format('Y-m-d');
         $response2 = $this->actingAs($stocker)->post('/tuntutan', [
             'tag' => 'Lunch',
             'week' => '2026-W29',
             'lunch_dates' => [
-                $futureDate, '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19'
+                $futureDate, '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
             ],
             'lunch_butirans' => [
-                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim'
+                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim',
             ],
             'lunch_pax' => [
-                5, 0, 0, 0, 0, 0, 0
+                5, 0, 0, 0, 0, 0, 0,
             ],
             'lunch_hargas' => [
-                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50
+                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50,
             ],
         ]);
         $response2->assertSessionHasErrors(['lunch_dates']);
@@ -233,16 +240,16 @@ class FFGroceryTrackTest extends TestCase
             'tag' => 'Lunch',
             'week' => '2026-W29',
             'lunch_dates' => [
-                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19'
+                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
             ],
             'lunch_butirans' => [
-                '', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim'
+                '', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim',
             ],
             'lunch_pax' => [
-                5, 0, 0, 0, 0, 0, 0
+                5, 0, 0, 0, 0, 0, 0,
             ],
             'lunch_hargas' => [
-                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50
+                12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50,
             ],
         ]);
         $response3->assertSessionHasErrors(['lunch_butirans']);
@@ -252,16 +259,16 @@ class FFGroceryTrackTest extends TestCase
             'tag' => 'Lunch',
             'week' => '2026-W29',
             'lunch_dates' => [
-                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19'
+                '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
             ],
             'lunch_butirans' => [
-                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim'
+                'Lunch Mon', 'Lunch Tue', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim', 'Lunch Claim',
             ],
             'lunch_pax' => [
-                5, 0, 0, 0, 0, 0, 0
+                5, 0, 0, 0, 0, 0, 0,
             ],
             'lunch_hargas' => [
-                0, 0, 0, 0, 0, 0, 0
+                0, 0, 0, 0, 0, 0, 0,
             ],
         ]);
         $response4->assertSessionHasErrors(['lunch_hargas']);
@@ -269,12 +276,12 @@ class FFGroceryTrackTest extends TestCase
 
     public function test_stocker_can_submit_general_and_food_claim_with_attachment(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
 
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('receipt.pdf', 100); // 100kb PDF
+        $file = UploadedFile::fake()->create('receipt.pdf', 100); // 100kb PDF
 
         // 1. Test General claim
         $responseGeneral = $this->actingAs($stocker)->post('/tuntutan', [
@@ -295,10 +302,10 @@ class FFGroceryTrackTest extends TestCase
 
         $claimGeneral = Tuntutan::where('tag', 'General')->first();
         $this->assertNotNull($claimGeneral->attachment);
-        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($claimGeneral->attachment);
+        Storage::disk('public')->assertExists($claimGeneral->attachment);
 
         // 2. Test Food claim
-        $file2 = \Illuminate\Http\UploadedFile::fake()->create('food_receipt.png', 200); // 200kb Image
+        $file2 = UploadedFile::fake()->create('food_receipt.png', 200); // 200kb Image
         $responseFood = $this->actingAs($stocker)->post('/tuntutan', [
             'tag' => 'Food',
             'nama_item' => 'Katering Makan Malam',
@@ -317,22 +324,94 @@ class FFGroceryTrackTest extends TestCase
 
         $claimFood = Tuntutan::where('tag', 'Food')->first();
         $this->assertNotNull($claimFood->attachment);
-        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($claimFood->attachment);
+        Storage::disk('public')->assertExists($claimFood->attachment);
     }
 
-    public function test_inventori_crud_with_brand_type_capacity(): void
+    public function test_superadmin_can_manage_category_presets(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $this->actingAs($superadmin)
+            ->get('/kategori')
+            ->assertOk()
+            ->assertSee('Pengurusan Kategori')
+            ->assertSee('Simpan')
+            ->assertDontSee('Simpan Semua')
+            ->assertDontSee('Simpan kategori');
+
+        $this->actingAs($superadmin)
+            ->post('/kategori', ['nama' => 'Minuman'])
+            ->assertRedirect('/kategori');
+
+        $category = Kategori::where('nama', 'Minuman')->firstOrFail();
+
+        $this->actingAs($superadmin)
+            ->put('/kategori', [
+                'categories' => [
+                    $this->kategori->id => 'Produk Tenusu',
+                    $category->id => 'Minuman Sejuk',
+                ],
+            ])
+            ->assertRedirect('/kategori');
+
+        $this->assertDatabaseHas('categories', ['nama' => 'Produk Tenusu']);
+        $this->assertDatabaseHas('categories', ['nama' => 'Minuman Sejuk']);
+
+        $this->actingAs($superadmin)
+            ->delete("/kategori/{$category->id}")
+            ->assertRedirect('/kategori');
+
+        $this->assertDatabaseMissing('categories', ['id' => $category->id]);
+    }
+
+    public function test_bulk_category_update_is_atomic_when_names_are_duplicated(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $category = Kategori::create(['nama' => 'Minuman']);
+
+        $this->actingAs($superadmin)
+            ->from('/kategori')
+            ->put('/kategori', [
+                'categories' => [
+                    $this->kategori->id => 'Nama Sama',
+                    $category->id => 'Nama Sama',
+                ],
+            ])
+            ->assertRedirect('/kategori')
+            ->assertSessionHasErrors('categories');
+
+        $this->assertDatabaseHas('categories', ['id' => $this->kategori->id, 'nama' => 'Tenusu']);
+        $this->assertDatabaseHas('categories', ['id' => $category->id, 'nama' => 'Minuman']);
+    }
+
+    public function test_non_admin_cannot_manage_category_presets(): void
     {
         $tracker = User::factory()->create();
         $tracker->assignRole('Tracker');
 
-        // Test create
+        $this->actingAs($tracker)
+            ->get('/kategori')
+            ->assertForbidden();
+
+        $this->actingAs($tracker)
+            ->put('/kategori', [
+                'categories' => [$this->kategori->id => 'Tidak Dibenarkan'],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_inventori_crud_uses_preset_category_and_name_includes_brand(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+
         $responseCreate = $this->actingAs($tracker)->post('/inventori', [
-            'nama_item' => 'Susu Tepung',
-            'kategori' => 'Tenusu',
-            'jenama' => 'Fernleaf',
+            'nama_item' => 'Susu Tepung Fernleaf',
+            'kategori_id' => $this->kategori->id,
             'jenis' => 'Serbuk',
             'capacity' => '1.8kg',
-            'jumlah_keseluruhan' => 10,
             'jumlah_belum_dibuka' => 8,
             'peratus_baki' => 80,
             'had_ambang' => 3,
@@ -340,22 +419,26 @@ class FFGroceryTrackTest extends TestCase
 
         $responseCreate->assertRedirect('/inventori');
         $this->assertDatabaseHas('inventori', [
-            'nama_item' => 'Susu Tepung',
-            'jenama' => 'Fernleaf',
+            'nama_item' => 'Susu Tepung Fernleaf',
+            'kategori_id' => $this->kategori->id,
             'jenis' => 'Serbuk',
             'capacity' => '1.8kg',
         ]);
 
-        $item = Inventori::first();
+        $item = Inventori::firstOrFail();
 
-        // Test update
-        $responseUpdate = $this->actingAs($tracker)->put('/inventori/' . $item->id, [
-            'nama_item' => 'Susu Tepung Pek Baru',
-            'kategori' => 'Tenusu',
-            'jenama' => 'Fernleaf Gold',
+        $this->actingAs($tracker)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSeeTextInOrder(['Serbuk', '•', '1.8kg'])
+            ->assertDontSee('Varian:')
+            ->assertDontSee('Kapasiti:');
+
+        $responseUpdate = $this->actingAs($tracker)->put('/inventori/'.$item->id, [
+            'nama_item' => 'Susu Tepung Fernleaf Gold',
+            'kategori_id' => $this->kategori->id,
             'jenis' => 'Serbuk',
             'capacity' => '2kg',
-            'jumlah_keseluruhan' => 12,
             'jumlah_belum_dibuka' => 9,
             'peratus_baki' => 75,
             'had_ambang' => 4,
@@ -364,10 +447,60 @@ class FFGroceryTrackTest extends TestCase
         $responseUpdate->assertRedirect('/inventori');
         $this->assertDatabaseHas('inventori', [
             'id' => $item->id,
-            'nama_item' => 'Susu Tepung Pek Baru',
-            'jenama' => 'Fernleaf Gold',
+            'nama_item' => 'Susu Tepung Fernleaf Gold',
             'jenis' => 'Serbuk',
             'capacity' => '2kg',
+        ]);
+    }
+
+    public function test_item_form_uses_category_dropdown_without_removed_fields(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+
+        $this->actingAs($tracker)
+            ->get('/inventori/create')
+            ->assertOk()
+            ->assertSee('Nama/Jenama')
+            ->assertSee('name="kategori_id"', false)
+            ->assertSee('Tenusu')
+            ->assertDontSee('name="kategori"', false)
+            ->assertDontSee('name="jenama"', false)
+            ->assertDontSee('jumlah_keseluruhan')
+            ->assertDontSee('checked', false);
+    }
+
+    public function test_api_exposes_presets_and_accepts_an_existing_category_name(): void
+    {
+        $tracker = User::factory()->create(['api_token' => 'test-api-token']);
+        $tracker->assignRole('Tracker');
+        $headers = ['Authorization' => 'Bearer test-api-token'];
+
+        $this->withHeaders($headers)
+            ->getJson('/api/kategori')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $this->kategori->id,
+                'nama' => 'Tenusu',
+            ]);
+
+        $this->withHeaders($headers)
+            ->postJson('/api/inventori', [
+                'nama_item' => 'Susu Farm Fresh',
+                'kategori' => 'Tenusu',
+                'jenis' => 'Segar',
+                'capacity' => '1L',
+                'jumlah_belum_dibuka' => 2,
+                'peratus_baki' => 100,
+                'had_ambang' => 1,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('kategori', 'Tenusu');
+
+        $this->assertDatabaseHas('inventori', [
+            'nama_item' => 'Susu Farm Fresh',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 2,
         ]);
     }
 }

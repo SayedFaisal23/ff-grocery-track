@@ -19,41 +19,45 @@
 
         <div class="form-row">
             <div class="form-group">
-                <label for="nama_item" class="form-label">Nama Barang</label>
-                <input type="text" name="nama_item" id="nama_item" class="form-control @error('nama_item') is-invalid @enderror" placeholder="Contoh: Susu Segar, Bawang Besar" value="{{ old('nama_item') }}" required>
+                <label for="nama_item" class="form-label">Nama/Jenama</label>
+                <input type="text" name="nama_item" id="nama_item" class="form-control @error('nama_item') is-invalid @enderror" placeholder="Contoh: Susu Segar Farm Fresh" value="{{ old('nama_item') }}" required>
                 @error('nama_item')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror
             </div>
-            
+
             <div class="form-group">
-                <label for="kategori" class="form-label">Kategori</label>
-                <input type="text" name="kategori" id="kategori" class="form-control @error('kategori') is-invalid @enderror" placeholder="Contoh: Tenusu, Sayuran, Rencah" value="{{ old('kategori') }}" required>
-                @error('kategori')
+                <label for="kategori_id" class="form-label">Kategori</label>
+                <select name="kategori_id" id="kategori_id" class="form-control @error('kategori_id') is-invalid @enderror" required>
+                    <option value="">Pilih Kategori</option>
+                    @foreach($categories as $category)
+                        <option value="{{ $category->id }}" {{ (string) old('kategori_id') === (string) $category->id ? 'selected' : '' }}>
+                            {{ $category->nama }}
+                        </option>
+                    @endforeach
+                </select>
+                @if($categories->isEmpty())
+                    <small style="color: var(--color-warning); display: block; margin-top: 4px;">
+                        Admin perlu menambah kategori terlebih dahulu.
+                    </small>
+                @endif
+                @error('kategori_id')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror
             </div>
         </div>
 
-        <div class="form-row-3col" style="margin-top: 1rem; margin-bottom: 1rem;">
+        <div class="form-row" style="margin-top: 1rem; margin-bottom: 1rem;">
             <div class="form-group">
-                <label for="jenama" class="form-label">Jenama</label>
-                <input type="text" name="jenama" id="jenama" class="form-control @error('jenama') is-invalid @enderror" placeholder="Contoh: Nestlé, Gardenia" value="{{ old('jenama') }}">
-                @error('jenama')
-                    <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
-                @enderror
-            </div>
-            
-            <div class="form-group">
-                <label for="jenis" class="form-label">Jenis/Varian</label>
-                <input type="text" name="jenis" id="jenis" class="form-control @error('jenis') is-invalid @enderror" placeholder="Contoh: Oreo biasa, Oreo Strawberry" value="{{ old('jenis') }}">
+                <label for="jenis" class="form-label">Varian</label>
+                <input type="text" name="jenis" id="jenis" class="form-control @error('jenis') is-invalid @enderror" placeholder="Contoh: Original, Strawberi" value="{{ old('jenis') }}">
                 @error('jenis')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror
             </div>
 
             <div class="form-group">
-                <label for="capacity" class="form-label">Capacity (ml/g/kg)</label>
+                <label for="capacity" class="form-label">Kapasiti (ml/g/kg)</label>
                 <input type="text" name="capacity" id="capacity" class="form-control @error('capacity') is-invalid @enderror" placeholder="Contoh: 1L, 500g, 2kg" value="{{ old('capacity') }}">
                 @error('capacity')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
@@ -63,25 +67,13 @@
 
         <div class="form-row">
             <div class="form-group">
-                <label for="jumlah_keseluruhan" class="form-label">Jumlah Keseluruhan (Unit)</label>
-                <input type="number" name="jumlah_keseluruhan" id="jumlah_keseluruhan" class="form-control @error('jumlah_keseluruhan') is-invalid @enderror" min="0" value="{{ old('jumlah_keseluruhan', 0) }}" required onchange="hadkanBelumDibukaInput()">
-                @error('jumlah_keseluruhan')
-                    <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div class="form-group">
-                <label for="jumlah_belum_dibuka" class="form-label">Jumlah Belum Dibuka (Unit)</label>
+                <label for="jumlah_belum_dibuka" class="form-label">Baki (Unit)</label>
                 <input type="number" name="jumlah_belum_dibuka" id="jumlah_belum_dibuka" class="form-control @error('jumlah_belum_dibuka') is-invalid @enderror" min="0" value="{{ old('jumlah_belum_dibuka', 0) }}" required>
                 @error('jumlah_belum_dibuka')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror
             </div>
-        </div>
 
-        <input type="hidden" name="peratus_baki" value="100">
-        
-        <div class="form-row">
             <div class="form-group">
                 <label for="had_ambang" class="form-label">Had Ambang Restok (Kuantiti Minimum)</label>
                 <input type="number" name="had_ambang" id="had_ambang" class="form-control @error('had_ambang') is-invalid @enderror" min="0" value="{{ old('had_ambang', 1) }}" required>
@@ -91,6 +83,8 @@
                 @enderror
             </div>
         </div>
+
+        <input type="hidden" name="peratus_baki" value="100">
 
         <div class="form-row" style="margin-top: 1rem;">
             <div class="form-group">
@@ -103,7 +97,7 @@
 
             <div class="form-group" style="display: flex; align-items: center; padding-top: 2rem;">
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                    <input type="checkbox" name="jejak_luput" value="1" {{ old('jejak_luput', '1') == '1' ? 'checked' : '' }} style="width: 18px; height: 18px; accent-color: var(--color-primary);">
+                    <input type="checkbox" name="jejak_luput" value="1" {{ old('jejak_luput') ? 'checked' : '' }} style="width: 18px; height: 18px; accent-color: var(--color-primary);">
                     <span style="font-weight: 500;">Jejak tarikh luput untuk barang ini</span>
                 </label>
             </div>
@@ -111,19 +105,8 @@
 
         <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
             <a href="{{ route('inventori.index') }}" class="btn btn-secondary">Batal</a>
-            <button type="submit" class="btn btn-primary">Simpan Barang</button>
+            <button type="submit" class="btn btn-primary" {{ $categories->isEmpty() ? 'disabled' : '' }}>Simpan Barang</button>
         </div>
     </form>
 </div>
-
-<script>
-    function hadkanBelumDibukaInput() {
-        const keseluruhan = parseInt(document.getElementById('jumlah_keseluruhan').value) || 0;
-        const belumDibuka = document.getElementById('jumlah_belum_dibuka');
-        belumDibuka.max = keseluruhan;
-        if (parseInt(belumDibuka.value) > keseluruhan) {
-            belumDibuka.value = keseluruhan;
-        }
-    }
-</script>
 @endsection

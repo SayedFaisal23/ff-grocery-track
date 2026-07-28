@@ -9,24 +9,11 @@ use Illuminate\Support\Facades\Log;
 
 class SendTelegramRestockAlert extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'telegram:send-restock-alert';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Send a list of all items reaching their restock threshold to Telegram';
+    protected $description = 'Send Telegram reminders for out-of-stock and below-threshold items';
 
-    /**
-     * Execute the console command.
-     */
-    public function handle()
+    public function handle(): int
     {
         $token = config('services.telegram.bot_token');
         $chatId = config('services.telegram.chat_id');
@@ -34,46 +21,61 @@ class SendTelegramRestockAlert extends Command
         if (empty($token) || empty($chatId)) {
             $this->warn('Telegram bot token or chat ID is not configured.');
             Log::warning('Telegram bot token or chat ID is not configured.');
+
             return self::FAILURE;
         }
 
-        // Fetch items reaching restock threshold
-        $items = Inventori::where(function ($query) {
-            $query->whereRaw('jumlah_keseluruhan <= had_ambang')
-                  ->orWhereRaw('jumlah_belum_dibuka <= had_ambang');
-        })->get();
+        $items = Inventori::whereColumn('jumlah_belum_dibuka', '<=', 'had_ambang')
+            ->orderBy('nama_item')
+            ->get();
 
         if ($items->isEmpty()) {
             $this->info('No items have reached the restock threshold.');
+
             return self::SUCCESS;
         }
 
-        $itemList = $items->map(fn($item) => "• {$item->nama_item}")->implode("\n");
+        $outOfStockItems = $items->where('jumlah_belum_dibuka', 0);
+        $belowThresholdItems = $items->where('jumlah_belum_dibuka', '>', 0);
+        $sections = [];
 
-        $message = "FFGrocery Restock List ⚠️\n\n"
-                 . "Sila beli stok baharu untuk item berikut:\n"
-                 . "{$itemList}\n\n"
-                 . "Sila semak sistem untuk maklumat lanjut.";
+        if ($outOfStockItems->isNotEmpty()) {
+            $sections[] = "HABIS STOK\n".$outOfStockItems
+                ->map(fn (Inventori $item) => "• {$item->nama_item} — Baki: 0 unit")
+                ->implode("\n");
+        }
+
+        if ($belowThresholdItems->isNotEmpty()) {
+            $sections[] = "BAKI DI BAWAH HAD\n".$belowThresholdItems
+                ->map(fn (Inventori $item) => "• {$item->nama_item} — Baki: {$item->jumlah_belum_dibuka} unit | Had: {$item->had_ambang} unit")
+                ->implode("\n");
+        }
+
+        $message = "FFGrocery — Peringatan Restok\n\n"
+            .implode("\n\n", $sections)
+            ."\n\nSila beli item di atas dan semak sistem untuk maklumat lanjut.";
 
         try {
             $response = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $message,
-                'parse_mode' => 'Markdown',
             ]);
 
             if ($response->failed()) {
-                $this->error('Telegram API error: ' . $response->body());
-                Log::error('Telegram API error response: ' . $response->body());
+                $this->error('Telegram API error: '.$response->body());
+                Log::error('Telegram API error response: '.$response->body());
+
                 return self::FAILURE;
             }
 
             $this->info('Telegram restock alert sent successfully.');
-            Log::info("Telegram restock alert list sent successfully for " . $items->count() . " items.");
+            Log::info("Telegram restock reminder sent for {$items->count()} items.");
+
             return self::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error('Failed to send Telegram notification: ' . $e->getMessage());
-            Log::error('Failed to send Telegram notification: ' . $e->getMessage());
+        } catch (\Throwable $exception) {
+            $this->error('Failed to send Telegram notification: '.$exception->getMessage());
+            Log::error('Failed to send Telegram notification: '.$exception->getMessage());
+
             return self::FAILURE;
         }
     }
