@@ -837,6 +837,7 @@ select.form-control option {
     }
 
     .adjustment-modal-secondary-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: 58px;
     }
 
@@ -846,6 +847,23 @@ select.form-control option {
     .adjustment-modal-secondary-actions form .btn {
         width: 100%;
         height: 100%;
+    }
+
+    .adjustment-modal-secondary-actions .btn {
+        position: relative;
+        justify-content: center;
+        gap: 0;
+    }
+
+    .adjustment-modal-secondary-actions .btn > i {
+        position: absolute;
+        left: 18px;
+    }
+
+    .adjustment-modal-secondary-actions .btn > span {
+        width: 100%;
+        line-height: 1.2;
+        text-align: center;
     }
 }
 

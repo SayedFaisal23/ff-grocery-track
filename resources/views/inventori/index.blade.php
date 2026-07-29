@@ -263,14 +263,16 @@
 
         <div class="adjustment-modal-secondary-actions">
             <a id="modalEditLink" href="#" class="btn btn-secondary">
-                <i class="fa-solid fa-pen"></i> Edit Barangan
+                <i class="fa-solid fa-pen"></i>
+                <span>Edit<br>Barangan</span>
             </a>
             @hasanyrole('Superadmin|Stocker|Tracker')
             <form id="modalDeleteForm" method="POST" onsubmit="return confirm('Adakah anda pasti mahu memadam item ini?')">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn btn-danger">
-                    <i class="fa-solid fa-trash"></i> Padam Barangan
+                    <i class="fa-solid fa-trash"></i>
+                    <span>Padam<br>Barangan</span>
                 </button>
             </form>
             @endhasanyrole
