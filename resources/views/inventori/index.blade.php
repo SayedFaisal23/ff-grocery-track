@@ -4,23 +4,18 @@
 
 @section('content')
 <style>
-    /* Mobile responsive optimizations for Collapsible Cards */
+    /* Mobile responsive inventory cards */
     @media (max-width: 768px) {
-        .mobile-item-card {
+        .mobile-item-card-trigger {
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
-        .mobile-card-body {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            transition: all 0.2s ease-in-out;
+
+        .mobile-item-card-trigger:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 3px;
         }
-        .mobile-item-card.collapsed .mobile-card-body {
-            display: none !important;
-        }
-        .mobile-item-card.collapsed .toggle-icon {
-            transform: rotate(-90deg);
-        }
+
         .mobile-card-stats {
             display: grid !important;
             grid-template-columns: 1fr !important;
@@ -55,6 +50,9 @@
 <!-- Penapis dan Carian -->
 <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
     <form action="{{ route('inventori.index') }}" method="GET" class="inventori-filter-form">
+        @if($activeSort)
+            <input type="hidden" name="sort" value="{{ $activeSort }}">
+        @endif
         <div class="inventori-search-row">
             <div class="inventori-search-input">
                 <input type="text" name="carian" class="form-control" placeholder="Cari Nama/Jenama..." value="{{ request('carian') }}">
@@ -71,7 +69,7 @@
                     <option value="{{ $kat->id }}" {{ (string) request('kategori') === (string) $kat->id ? 'selected' : '' }}>{{ $kat->nama }}</option>
                 @endforeach
             </select>
-            @if(request('carian') || request('kategori'))
+            @if(request('carian') || request('kategori') || $activeSort)
                 <a href="{{ route('inventori.index') }}" class="btn btn-secondary" style="background: transparent; border: none; white-space: nowrap;">Set Semula</a>
             @endif
         </div>
@@ -85,10 +83,10 @@
             <thead>
                 <tr>
                     <th style="width: 60px;">No.</th>
-                    <th>Nama/Jenama</th>
-                    <th>Kategori</th>
-                    <th>Baki</th>
-                    <th>Tarikh Luput</th>
+                    <x-inventori-sort-header sort="nama" label="Nama/Jenama" :active-sort="$activeSort" />
+                    <x-inventori-sort-header sort="kategori" label="Kategori" :active-sort="$activeSort" />
+                    <x-inventori-sort-header sort="baki" label="Baki" :active-sort="$activeSort" />
+                    <x-inventori-sort-header sort="tarikh_luput" label="Tarikh Luput" :active-sort="$activeSort" />
                     <th style="text-align: right;">Tindakan</th>
                 </tr>
             </thead>
@@ -173,12 +171,21 @@
     <!-- View Mudah Alih / Mobile View -->
     <div class="mobile-only-view">
         @forelse($items as $item)
-        <div class="mobile-item-card collapsed" id="mobile-card-{{ $item->id }}">
-            <div class="mobile-card-header" onclick="toggleMobileCard({{ $item->id }})" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        <div
+            class="mobile-item-card mobile-item-card-trigger"
+            role="button"
+            tabindex="0"
+            aria-haspopup="dialog"
+            aria-controls="modalPelarasan"
+            aria-label="Selaraskan stok {{ $item->nama_item }}"
+            onclick="bukaModalPelarasan({{ json_encode($item) }}, this)"
+            onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bukaModalPelarasan({{ json_encode($item) }}, this); }"
+        >
+            <div class="mobile-card-header">
                 <div class="item-name-group">
-                    <span class="item-name" style="display: flex; align-items: center; gap: 4px;">
+                    <span class="item-name">
                         {{ $item->nama_item }}
-                        <i class="fa-solid fa-chevron-down toggle-icon" style="font-size: 0.85rem; color: var(--text-dark); transition: transform 0.2s;"></i>
+                        <i class="fa-solid fa-pen-to-square mobile-card-action-cue" aria-hidden="true"></i>
                     </span>
                     @if($item->jenis || $item->capacity)
                         <span style="font-size: 0.72rem; color: var(--text-dark); margin-top: 3px;">
@@ -194,11 +201,9 @@
                             $daysToExpiry = now()->startOfDay()->diffInDays($item->tarikh_luput->startOfDay(), false);
                         @endphp
                         @if($daysToExpiry < 0)
-                            <span class="badge badge-danger">Telah Luput ({{ abs($daysToExpiry) }}h)</span>
-                            <div style="font-size: 0.75rem; color: var(--color-danger); text-align: right;">{{ $item->tarikh_luput->format('d/m/Y') }}</div>
+                            <span class="expiry-date-text expiry-date-urgent expiry-date-expired">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
                         @elseif($daysToExpiry <= 3)
-                            <span class="badge badge-warning">Hampir Luput ({{ $daysToExpiry }}h)</span>
-                            <div style="font-size: 0.75rem; color: var(--color-warning); text-align: right;">{{ $item->tarikh_luput->format('d/m/Y') }}</div>
+                            <span class="expiry-date-text expiry-date-urgent expiry-date-warning">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
                         @else
                             <span class="expiry-date-text" style="font-size: 0.85rem; color: var(--text-muted);">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
                         @endif
@@ -220,29 +225,6 @@
                     </span>
                 </div>
             </div>
-
-            <div class="mobile-card-body">
-                <div class="mobile-card-actions">
-                    <div></div>
-                    <div class="action-buttons">
-                        <button onclick="bukaModalPelarasan({{ json_encode($item) }})" class="btn btn-secondary btn-sm" title="Selaraskan Stok">
-                            <i class="fa-solid fa-sliders"></i>
-                        </button>
-                        <a href="{{ route('inventori.edit', $item->id) }}" class="btn btn-secondary btn-sm" title="Edit Barangan">
-                            <i class="fa-solid fa-pen"></i>
-                        </a>
-                        @hasanyrole('Superadmin|Stocker|Tracker')
-                        <form action="{{ route('inventori.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Adakah anda pasti mahu memadam item ini?')" style="display:inline;">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm" title="Padam Barangan" style="background-color: transparent; color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.2); padding: 6px 10px;">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </form>
-                        @endhasanyrole
-                    </div>
-                </div>
-            </div>
         </div>
         @empty
         <div class="mobile-empty-state">
@@ -254,11 +236,13 @@
 </div>
 
 <!-- Modal Pelarasan Tahap Stok -->
-<div id="modalPelarasan" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-    <div class="card" style="width: 100%; max-width: 460px; margin: 1rem; box-shadow: var(--shadow-lg);">
-        <div class="card-header-flex">
+<div id="modalPelarasan" class="modal-overlay" aria-hidden="true" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="card adjustment-modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" style="width: 100%; max-width: 460px; margin: 1rem; box-shadow: var(--shadow-lg);">
+        <div class="adjustment-modal-header">
             <h3 id="modalTitle" style="color: #fff; font-size: 1.25rem;">Selaraskan Stok</h3>
-            <button onclick="tutupModalPelarasan()" style="cursor: pointer; font-size: 1.25rem;"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" onclick="tutupModalPelarasan()" class="adjustment-modal-close" aria-label="Tutup popup pelarasan">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
         
         <form id="formPelarasan" method="POST">
@@ -272,33 +256,74 @@
                 <input type="number" name="jumlah_belum_dibuka" id="adj_belum_dibuka" class="form-control" min="0" required>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 2rem;">
+            <div class="adjustment-modal-primary-actions">
                 <button type="button" onclick="tutupModalPelarasan()" class="btn btn-secondary">Batal</button>
                 <button type="submit" class="btn btn-success">Simpan Pelarasan</button>
             </div>
         </form>
+
+        <div class="adjustment-modal-secondary-actions">
+            <a id="modalEditLink" href="#" class="btn btn-secondary">
+                <i class="fa-solid fa-pen"></i> Edit Barangan
+            </a>
+            @hasanyrole('Superadmin|Stocker|Tracker')
+            <form id="modalDeleteForm" method="POST" onsubmit="return confirm('Adakah anda pasti mahu memadam item ini?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-danger">
+                    <i class="fa-solid fa-trash"></i> Padam Barangan
+                </button>
+            </form>
+            @endhasanyrole
+        </div>
     </div>
 </div>
 
 <script>
-    function toggleMobileCard(itemId) {
-        const card = document.getElementById('mobile-card-' + itemId);
-        if (card) {
-            card.classList.toggle('collapsed');
-        }
-    }
+    let modalTriggerElement = null;
 
-    function bukaModalPelarasan(item) {
+    function bukaModalPelarasan(item, triggerElement = null) {
+        const modal = document.getElementById('modalPelarasan');
+
+        modalTriggerElement = triggerElement || document.activeElement;
         document.getElementById('modalTitle').innerText = 'Selaraskan: ' + item.nama_item;
         document.getElementById('formPelarasan').action = '/inventori/' + item.id + '/adjust';
         document.getElementById('adj_belum_dibuka').value = item.jumlah_belum_dibuka;
         document.getElementById('adj_peratus').value = item.peratus_baki;
+        document.getElementById('modalEditLink').href = '/inventori/' + item.id + '/edit';
 
-        document.getElementById('modalPelarasan').style.display = 'flex';
+        const deleteForm = document.getElementById('modalDeleteForm');
+        if (deleteForm) {
+            deleteForm.action = '/inventori/' + item.id;
+        }
+
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        window.setTimeout(() => document.getElementById('adj_belum_dibuka').focus(), 0);
     }
     
     function tutupModalPelarasan() {
-        document.getElementById('modalPelarasan').style.display = 'none';
+        const modal = document.getElementById('modalPelarasan');
+
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        modalTriggerElement?.focus();
+        modalTriggerElement = null;
     }
+
+    document.getElementById('modalPelarasan').addEventListener('click', (event) => {
+        if (event.target.id === 'modalPelarasan') {
+            tutupModalPelarasan();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && document.getElementById('modalPelarasan').style.display !== 'none') {
+            tutupModalPelarasan();
+        }
+    });
 </script>
 @endsection

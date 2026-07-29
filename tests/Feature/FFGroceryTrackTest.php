@@ -550,6 +550,93 @@ class FFGroceryTrackTest extends TestCase
             ->assertSee('color: #0EA5E9', false);
     }
 
+    public function test_mobile_inventory_cards_open_the_adjustment_sheet_without_expanding(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+
+        Inventori::create([
+            'nama_item' => 'Susu Ujian',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 2,
+            'peratus_baki' => 100,
+            'had_ambang' => 1,
+        ]);
+
+        $this->actingAs($tracker)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('mobile-item-card-trigger', false)
+            ->assertSee('fa-pen-to-square', false)
+            ->assertSee('role="button"', false)
+            ->assertSee('aria-controls="modalPelarasan"', false)
+            ->assertSee('id="modalEditLink"', false)
+            ->assertSee('id="modalDeleteForm"', false)
+            ->assertSee('adjustment-modal-card', false)
+            ->assertDontSee('toggleMobileCard', false)
+            ->assertDontSee('mobile-card-body', false)
+            ->assertDontSee('mobile-card-actions', false);
+    }
+
+    public function test_inventori_index_supports_single_column_sorting(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+        $minuman = Kategori::create(['nama' => 'Minuman']);
+
+        foreach ([
+            ['nama_item' => 'Zeta', 'kategori_id' => $this->kategori->id, 'jumlah_belum_dibuka' => 5, 'tarikh_luput' => '2026-08-10', 'jejak_luput' => true],
+            ['nama_item' => 'Alpha', 'kategori_id' => $minuman->id, 'jumlah_belum_dibuka' => 1, 'tarikh_luput' => '2026-08-05', 'jejak_luput' => true],
+            ['nama_item' => 'Beta', 'kategori_id' => $minuman->id, 'jumlah_belum_dibuka' => 9, 'tarikh_luput' => null, 'jejak_luput' => false],
+            ['nama_item' => 'Gamma', 'kategori_id' => $this->kategori->id, 'jumlah_belum_dibuka' => 5, 'tarikh_luput' => '2026-08-20', 'jejak_luput' => true],
+        ] as $attributes) {
+            Inventori::create([
+                ...$attributes,
+                'peratus_baki' => 100,
+                'had_ambang' => 1,
+            ]);
+        }
+
+        $assertOrder = function (?string $sort, array $expected) use ($tracker): void {
+            $response = $this->actingAs($tracker)
+                ->get('/inventori'.($sort ? '?sort='.$sort : ''))
+                ->assertOk();
+
+            $this->assertSame($expected, $response->viewData('items')->pluck('nama_item')->all());
+        };
+
+        $assertOrder(null, ['Alpha', 'Beta', 'Gamma', 'Zeta']);
+        $assertOrder('invalid', ['Alpha', 'Beta', 'Gamma', 'Zeta']);
+        $assertOrder('nama_asc', ['Alpha', 'Beta', 'Gamma', 'Zeta']);
+        $assertOrder('nama_desc', ['Zeta', 'Gamma', 'Beta', 'Alpha']);
+        $assertOrder('kategori_asc', ['Alpha', 'Beta', 'Gamma', 'Zeta']);
+        $assertOrder('kategori_desc', ['Gamma', 'Zeta', 'Alpha', 'Beta']);
+        $assertOrder('baki_asc', ['Alpha', 'Gamma', 'Zeta', 'Beta']);
+        $assertOrder('baki_desc', ['Beta', 'Gamma', 'Zeta', 'Alpha']);
+        $assertOrder('tarikh_luput_asc', ['Alpha', 'Zeta', 'Gamma', 'Beta']);
+        $assertOrder('tarikh_luput_desc', ['Gamma', 'Zeta', 'Alpha', 'Beta']);
+    }
+
+    public function test_inventori_sort_controls_replace_the_previous_sort_and_preserve_filters(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+
+        $response = $this->actingAs($tracker)
+            ->get('/inventori?carian=Susu&kategori='.$this->kategori->id.'&sort=baki_asc')
+            ->assertOk()
+            ->assertSee('aria-sort="ascending"', false)
+            ->assertSee('name="sort"', false)
+            ->assertSee('value="baki_asc"', false)
+            ->assertDontSee('id="inventoriSort"', false)
+            ->assertSee('Set Semula');
+
+        $response->assertSee(
+            'carian=Susu&amp;kategori='.$this->kategori->id.'&amp;sort=kategori_asc',
+            false
+        );
+    }
+
     public function test_inventori_crud_uses_preset_category_and_name_includes_brand(): void
     {
         $tracker = User::factory()->create();

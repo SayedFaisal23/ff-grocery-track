@@ -5,12 +5,24 @@ namespace App\Http\Controllers;
 use App\Models\Inventori;
 use App\Models\Kategori;
 use App\Models\LogAktiviti;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class InventoriController extends Controller
 {
+    private const INVENTORY_SORTS = [
+        'nama_asc',
+        'nama_desc',
+        'kategori_asc',
+        'kategori_desc',
+        'baki_asc',
+        'baki_desc',
+        'tarikh_luput_asc',
+        'tarikh_luput_desc',
+    ];
+
     /**
      * Paparkan senarai inventori.
      */
@@ -28,10 +40,63 @@ class InventoriController extends Controller
             $query->where('kategori_id', $request->kategori);
         }
 
-        $items = $query->orderBy('nama_item', 'asc')->get();
+        $activeSort = $this->normalizedInventorySort($request->query('sort'));
+        $this->applyInventorySort($query, $activeSort);
+
+        $items = $query->get();
         $kategoriSenarai = Kategori::orderBy('nama')->get();
 
-        return view('inventori.index', compact('items', 'kategoriSenarai'));
+        return view('inventori.index', compact('items', 'kategoriSenarai', 'activeSort'));
+    }
+
+    private function normalizedInventorySort(mixed $sort): ?string
+    {
+        return is_string($sort) && in_array($sort, self::INVENTORY_SORTS, true)
+            ? $sort
+            : null;
+    }
+
+    private function applyInventorySort(Builder $query, ?string $sort): void
+    {
+        switch ($sort) {
+            case 'nama_desc':
+                $query->orderBy('nama_item', 'desc');
+                break;
+
+            case 'kategori_asc':
+            case 'kategori_desc':
+                $direction = $sort === 'kategori_asc' ? 'asc' : 'desc';
+
+                $query->orderBy(
+                    Kategori::select('nama')
+                        ->whereColumn('categories.id', 'inventori.kategori_id'),
+                    $direction
+                )->orderBy('nama_item', 'asc');
+                break;
+
+            case 'baki_asc':
+            case 'baki_desc':
+                $direction = $sort === 'baki_asc' ? 'asc' : 'desc';
+
+                $query->orderBy('jumlah_belum_dibuka', $direction)
+                    ->orderBy('nama_item', 'asc');
+                break;
+
+            case 'tarikh_luput_asc':
+            case 'tarikh_luput_desc':
+                $direction = $sort === 'tarikh_luput_asc' ? 'asc' : 'desc';
+
+                $query->orderByRaw(
+                    'CASE WHEN jejak_luput = 1 AND tarikh_luput IS NOT NULL THEN 0 ELSE 1 END'
+                )->orderBy('tarikh_luput', $direction)
+                    ->orderBy('nama_item', 'asc');
+                break;
+
+            case 'nama_asc':
+            default:
+                $query->orderBy('nama_item', 'asc');
+                break;
+        }
     }
 
     /**
