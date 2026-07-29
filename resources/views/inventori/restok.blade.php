@@ -15,7 +15,7 @@
     <div class="card-header-flex">
         <h2 style="color: var(--color-danger); font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-circle-exclamation"></i>
-            <span>Habis Stok (Kuantiti: 0)</span>
+            <span>Habis Stok (Baki: 0)</span>
         </h2>
         <span class="badge badge-danger">{{ $habisStok->count() }} item</span>
     </div>
