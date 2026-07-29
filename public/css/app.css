@@ -833,10 +833,19 @@ select.form-control option {
     .adjustment-modal-primary-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: 58px;
     }
 
-    .adjustment-modal-primary-actions .btn {
+    .adjustment-modal-secondary-actions {
+        grid-auto-rows: 58px;
+    }
+
+    .adjustment-modal-primary-actions .btn,
+    .adjustment-modal-secondary-actions > .btn,
+    .adjustment-modal-secondary-actions form,
+    .adjustment-modal-secondary-actions form .btn {
         width: 100%;
+        height: 100%;
     }
 }
 
