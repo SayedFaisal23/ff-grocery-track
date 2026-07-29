@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Inventori;
 use App\Models\Kategori;
+use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
 use App\Models\User;
 use Carbon\Carbon;
@@ -36,6 +37,15 @@ class FFGroceryTrackTest extends TestCase
         $response = $this->get('/login');
         $response->assertStatus(200);
         $response->assertSee('Log Masuk');
+    }
+
+    public function test_category_color_defaults_to_current_indigo(): void
+    {
+        $this->assertSame(Kategori::DEFAULT_WARNA, $this->kategori->warna);
+        $this->assertDatabaseHas('categories', [
+            'id' => $this->kategori->id,
+            'warna' => Kategori::DEFAULT_WARNA,
+        ]);
     }
 
     public function test_superadmin_can_access_dashboard_and_logs(): void
@@ -336,12 +346,17 @@ class FFGroceryTrackTest extends TestCase
             ->get('/kategori')
             ->assertOk()
             ->assertSee('Pengurusan Kategori')
+            ->assertSee('Warna')
+            ->assertSee('type="color"', false)
             ->assertSee('Simpan')
             ->assertDontSee('Simpan Semua')
             ->assertDontSee('Simpan kategori');
 
         $this->actingAs($superadmin)
-            ->post('/kategori', ['nama' => 'Minuman'])
+            ->post('/kategori', [
+                'nama' => 'Minuman',
+                'warna' => '#F97316',
+            ])
             ->assertRedirect('/kategori');
 
         $category = Kategori::where('nama', 'Minuman')->firstOrFail();
@@ -349,14 +364,20 @@ class FFGroceryTrackTest extends TestCase
         $this->actingAs($superadmin)
             ->put('/kategori', [
                 'categories' => [
-                    $this->kategori->id => 'Produk Tenusu',
-                    $category->id => 'Minuman Sejuk',
+                    $this->kategori->id => [
+                        'nama' => 'Produk Tenusu',
+                        'warna' => '#0EA5E9',
+                    ],
+                    $category->id => [
+                        'nama' => 'Minuman Sejuk',
+                        'warna' => '#F59E0B',
+                    ],
                 ],
             ])
             ->assertRedirect('/kategori');
 
-        $this->assertDatabaseHas('categories', ['nama' => 'Produk Tenusu']);
-        $this->assertDatabaseHas('categories', ['nama' => 'Minuman Sejuk']);
+        $this->assertDatabaseHas('categories', ['nama' => 'Produk Tenusu', 'warna' => '#0EA5E9']);
+        $this->assertDatabaseHas('categories', ['nama' => 'Minuman Sejuk', 'warna' => '#F59E0B']);
 
         $this->actingAs($superadmin)
             ->delete("/kategori/{$category->id}")
@@ -375,8 +396,14 @@ class FFGroceryTrackTest extends TestCase
             ->from('/kategori')
             ->put('/kategori', [
                 'categories' => [
-                    $this->kategori->id => 'Nama Sama',
-                    $category->id => 'Nama Sama',
+                    $this->kategori->id => [
+                        'nama' => 'Nama Sama',
+                        'warna' => '#0EA5E9',
+                    ],
+                    $category->id => [
+                        'nama' => 'Nama Sama',
+                        'warna' => '#F59E0B',
+                    ],
                 ],
             ])
             ->assertRedirect('/kategori')
@@ -395,8 +422,14 @@ class FFGroceryTrackTest extends TestCase
         $this->actingAs($superadmin)
             ->put('/kategori', [
                 'categories' => [
-                    $this->kategori->id => 'Produk Tenusu',
-                    $category->id => 'Minuman',
+                    $this->kategori->id => [
+                        'nama' => 'Produk Tenusu',
+                        'warna' => '#0EA5E9',
+                    ],
+                    $category->id => [
+                        'nama' => 'Minuman',
+                        'warna' => '#F59E0B',
+                    ],
                 ],
             ])
             ->assertRedirect('/kategori')
@@ -404,6 +437,44 @@ class FFGroceryTrackTest extends TestCase
 
         $this->assertDatabaseHas('categories', ['id' => $this->kategori->id, 'nama' => 'Produk Tenusu']);
         $this->assertDatabaseHas('categories', ['id' => $category->id, 'nama' => 'Minuman']);
+    }
+
+    public function test_bulk_category_color_update_is_logged_and_invalid_colors_are_rejected(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $this->actingAs($superadmin)
+            ->put('/kategori', [
+                'categories' => [
+                    $this->kategori->id => [
+                        'nama' => 'Tenusu',
+                        'warna' => '#0ea5e9',
+                    ],
+                ],
+            ])
+            ->assertRedirect('/kategori')
+            ->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $this->kategori->id,
+            'nama' => 'Tenusu',
+            'warna' => '#0EA5E9',
+        ]);
+
+        $log = LogAktiviti::latest('id')->firstOrFail();
+        $this->assertSame('#0EA5E9', $log->data_baru[0]['warna']);
+
+        $this->actingAs($superadmin)
+            ->from('/kategori')
+            ->post('/kategori', [
+                'nama' => 'Kategori Tidak Sah',
+                'warna' => 'blue',
+            ])
+            ->assertRedirect('/kategori')
+            ->assertSessionHasErrors('warna');
+
+        $this->assertDatabaseMissing('categories', ['nama' => 'Kategori Tidak Sah']);
     }
 
     public function test_category_in_use_shows_a_clear_deletion_explanation(): void
@@ -442,9 +513,41 @@ class FFGroceryTrackTest extends TestCase
 
         $this->actingAs($tracker)
             ->put('/kategori', [
-                'categories' => [$this->kategori->id => 'Tidak Dibenarkan'],
+                'categories' => [
+                    $this->kategori->id => [
+                        'nama' => 'Tidak Dibenarkan',
+                        'warna' => '#0EA5E9',
+                    ],
+                ],
             ])
             ->assertForbidden();
+    }
+
+    public function test_inventori_and_restock_show_the_selected_category_pill_color(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+        $this->kategori->update(['warna' => '#0EA5E9']);
+
+        Inventori::create([
+            'nama_item' => 'Susu Ujian',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 0,
+            'peratus_baki' => 100,
+            'had_ambang' => 1,
+        ]);
+
+        $this->actingAs($tracker)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('background-color: #0EA5E926', false)
+            ->assertSee('color: #0EA5E9', false);
+
+        $this->actingAs($tracker)
+            ->get('/restok')
+            ->assertOk()
+            ->assertSee('background-color: #0EA5E926', false)
+            ->assertSee('color: #0EA5E9', false);
     }
 
     public function test_inventori_crud_uses_preset_category_and_name_includes_brand(): void
@@ -527,6 +630,7 @@ class FFGroceryTrackTest extends TestCase
             ->assertJsonFragment([
                 'id' => $this->kategori->id,
                 'nama' => 'Tenusu',
+                'warna' => Kategori::DEFAULT_WARNA,
             ]);
 
         $this->withHeaders($headers)

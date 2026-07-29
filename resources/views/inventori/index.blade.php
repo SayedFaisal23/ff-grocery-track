@@ -111,7 +111,7 @@
                         </div>
                     </td>
                     <td data-label="Kategori">
-                        <span class="badge badge-primary">{{ $item->kategori }}</span>
+                        <x-kategori-pill :kategori="$item->kategoriPreset" />
                     </td>
                     <td data-label="Baki">
                         @if($item->jumlah_belum_dibuka == 0)
@@ -205,7 +205,7 @@
                     @else
                         <span class="expiry-no-track" style="font-size: 0.8rem; color: var(--text-dark);">Tidak dijejak</span>
                     @endif
-                    <span class="badge badge-primary">{{ $item->kategori }}</span>
+                    <x-kategori-pill :kategori="$item->kategoriPreset" />
                 </div>
             </div>
             <div class="mobile-card-stats">

@@ -24,18 +24,23 @@ class KategoriController extends Controller
     public function store(Request $request)
     {
         $request->merge([
-            'nama' => trim((string) $request->input('nama')),
+            'nama' => $this->normalizeName($request->input('nama')),
+            'warna' => $this->normalizeColor($request->input('warna')),
         ]);
 
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255', 'unique:categories,nama'],
+            'warna' => ['required', 'string', 'regex:/^#[0-9A-F]{6}$/'],
         ], [
             'nama.required' => 'Sila masukkan nama kategori.',
             'nama.unique' => 'Kategori ini telah wujud.',
+            'warna.required' => 'Sila pilih warna kategori.',
+            'warna.regex' => 'Warna kategori mestilah dalam format heksadesimal #RRGGBB.',
         ]);
 
         $category = Kategori::create([
             'nama' => trim($validated['nama']),
+            'warna' => $validated['warna'],
         ]);
 
         LogAktiviti::create([
@@ -50,20 +55,35 @@ class KategoriController extends Controller
 
     public function updateAll(Request $request)
     {
-        $normalizedCategories = collect($request->input('categories', []))
-            ->mapWithKeys(fn ($name, $id) => [(string) $id => trim((string) $name)]);
+        $categoriesInput = $request->input('categories', []);
+        $normalizedCategories = is_array($categoriesInput)
+            ? collect($categoriesInput)->mapWithKeys(function ($category, $id): array {
+                $category = is_array($category) ? $category : [];
+
+                return [(string) $id => [
+                    'nama' => $this->normalizeName($category['nama'] ?? null),
+                    'warna' => $this->normalizeColor($category['warna'] ?? null),
+                ]];
+            })->all()
+            : $categoriesInput;
 
         $request->merge([
-            'categories' => $normalizedCategories->all(),
+            'categories' => $normalizedCategories,
         ]);
 
         $request->validate([
             'categories' => ['required', 'array', 'min:1'],
-            'categories.*' => ['required', 'string', 'max:255'],
+            'categories.*' => ['required', 'array'],
+            'categories.*.nama' => ['required', 'string', 'max:255'],
+            'categories.*.warna' => ['required', 'string', 'regex:/^#[0-9A-F]{6}$/'],
         ], [
             'categories.required' => 'Tiada kategori untuk disimpan.',
-            'categories.*.required' => 'Nama kategori tidak boleh dikosongkan.',
+            'categories.*.nama.required' => 'Nama kategori tidak boleh dikosongkan.',
+            'categories.*.warna.required' => 'Sila pilih warna kategori.',
+            'categories.*.warna.regex' => 'Warna kategori mestilah dalam format heksadesimal #RRGGBB.',
         ]);
+
+        $normalizedCategories = collect($request->input('categories'));
 
         $updatedCount = DB::transaction(function () use ($normalizedCategories) {
             $categories = Kategori::query()
@@ -82,7 +102,7 @@ class KategoriController extends Controller
 
             $targetNames = $categories
                 ->mapWithKeys(fn (Kategori $category) => [(string) $category->id => $category->nama])
-                ->replace($normalizedCategories);
+                ->replace($normalizedCategories->map(fn (array $category) => $category['nama']));
 
             $normalizedNames = $targetNames->map(fn ($name) => mb_strtolower($name, 'UTF-8'));
 
@@ -93,25 +113,33 @@ class KategoriController extends Controller
             }
 
             $changedCategories = $normalizedCategories
-                ->filter(fn ($name, $id) => $categories->get((string) $id)->nama !== $name);
+                ->filter(function (array $category, $id) use ($categories): bool {
+                    $storedCategory = $categories->get((string) $id);
+
+                    return $storedCategory->nama !== $category['nama']
+                        || $storedCategory->warna !== $category['warna'];
+                });
 
             if ($changedCategories->isEmpty()) {
                 return 0;
             }
 
             $oldData = $changedCategories
-                ->map(fn ($name, $id) => $categories->get((string) $id)->only(['id', 'nama']))
+                ->map(fn ($category, $id) => $categories->get((string) $id)->only(['id', 'nama', 'warna']))
                 ->values()
                 ->all();
 
-            foreach ($changedCategories as $id => $name) {
+            $nameChanges = $changedCategories
+                ->filter(fn (array $category, $id) => $categories->get((string) $id)->nama !== $category['nama']);
+
+            foreach ($nameChanges as $id => $category) {
                 $categories->get((string) $id)->update([
                     'nama' => '__kategori_sementara_'.$id.'_'.Str::uuid(),
                 ]);
             }
 
-            foreach ($changedCategories as $id => $name) {
-                $categories->get((string) $id)->update(['nama' => $name]);
+            foreach ($changedCategories as $id => $category) {
+                $categories->get((string) $id)->update($category);
             }
 
             LogAktiviti::create([
@@ -119,7 +147,11 @@ class KategoriController extends Controller
                 'aktiviti' => "Mengemaskini {$changedCategories->count()} kategori inventori secara pukal.",
                 'data_lama' => $oldData,
                 'data_baru' => $changedCategories
-                    ->map(fn ($name, $id) => ['id' => (int) $id, 'nama' => $name])
+                    ->map(fn ($category, $id) => [
+                        'id' => (int) $id,
+                        'nama' => $category['nama'],
+                        'warna' => $category['warna'],
+                    ])
                     ->values()
                     ->all(),
             ]);
@@ -132,6 +164,16 @@ class KategoriController extends Controller
             : 'Tiada perubahan kategori untuk disimpan.';
 
         return redirect()->route('kategori.index')->with('success', $message);
+    }
+
+    private function normalizeName(mixed $name): mixed
+    {
+        return is_string($name) ? trim($name) : $name;
+    }
+
+    private function normalizeColor(mixed $warna): mixed
+    {
+        return is_string($warna) ? strtoupper(trim($warna)) : $warna;
     }
 
     public function destroy(Kategori $kategori)

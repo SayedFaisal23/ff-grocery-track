@@ -34,7 +34,7 @@
                 @forelse($habisStok as $item)
                 <tr>
                     <td data-label="Nama/Jenama"><strong>{{ $item->nama_item }}</strong></td>
-                    <td data-label="Kategori"><span class="badge badge-primary">{{ $item->kategori }}</span></td>
+                    <td data-label="Kategori"><x-kategori-pill :kategori="$item->kategoriPreset" /></td>
                     <td data-label="Had Ambang">{{ $item->had_ambang }} unit</td>
                     <td data-label="Tindakan" style="text-align: right;">
                         <a href="{{ route('inventori.edit', $item->id) }}" class="btn btn-secondary btn-sm">
@@ -60,7 +60,7 @@
             <div class="mobile-card-header">
                 <div class="item-name-group">
                     <span class="item-name">{{ $item->nama_item }}</span>
-                    <span class="badge badge-primary">{{ $item->kategori }}</span>
+                    <x-kategori-pill :kategori="$item->kategoriPreset" />
                 </div>
                 <div class="item-status">
                     <span class="badge badge-danger">Habis Stok</span>
@@ -116,7 +116,7 @@
                 @forelse($bawahAmbang as $item)
                 <tr>
                     <td data-label="Nama/Jenama"><strong>{{ $item->nama_item }}</strong></td>
-                    <td data-label="Kategori"><span class="badge badge-primary">{{ $item->kategori }}</span></td>
+                    <td data-label="Kategori"><x-kategori-pill :kategori="$item->kategoriPreset" /></td>
                     <td data-label="Baki"><span style="color: var(--color-warning); font-weight: 600;">{{ $item->jumlah_belum_dibuka }}</span> unit</td>
                     <td data-label="Had Ambang">{{ $item->had_ambang }} unit</td>
                     <td data-label="Tindakan" style="text-align: right;">
@@ -143,7 +143,7 @@
             <div class="mobile-card-header">
                 <div class="item-name-group">
                     <span class="item-name">{{ $item->nama_item }}</span>
-                    <span class="badge badge-primary">{{ $item->kategori }}</span>
+                    <x-kategori-pill :kategori="$item->kategoriPreset" />
                 </div>
                 <div class="item-status">
                     <span class="badge badge-warning">Bawah Had</span>
