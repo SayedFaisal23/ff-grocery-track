@@ -1,4 +1,4 @@
-@props(['sort', 'label', 'activeSort' => null])
+@props(['sort', 'label', 'activeSort' => null, 'alignment' => 'left'])
 
 @php
     $ascendingSort = "{$sort}_asc";
@@ -32,7 +32,7 @@
 <th class="sortable-table-header" aria-sort="{{ $ariaSort }}">
     <a
         href="{{ route('inventori.index', $query) }}"
-        class="sortable-table-header-link {{ $ariaSort !== 'none' ? 'is-active' : '' }}"
+        class="sortable-table-header-link {{ $ariaSort !== 'none' ? 'is-active' : '' }} {{ $alignment === 'center' ? 'is-centered' : '' }}"
         title="Susun {{ $label }} {{ $nextLabel }}"
     >
         <span>{{ $label }}</span>

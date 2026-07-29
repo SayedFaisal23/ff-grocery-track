@@ -85,7 +85,7 @@
                     <th style="width: 60px;">No.</th>
                     <x-inventori-sort-header sort="nama" label="Nama/Jenama" :active-sort="$activeSort" />
                     <x-inventori-sort-header sort="kategori" label="Kategori" :active-sort="$activeSort" />
-                    <x-inventori-sort-header sort="baki" label="Baki" :active-sort="$activeSort" />
+                    <x-inventori-sort-header sort="baki" label="Baki" :active-sort="$activeSort" alignment="center" />
                     <x-inventori-sort-header sort="tarikh_luput" label="Tarikh Luput" :active-sort="$activeSort" />
                     <th style="text-align: right;">Tindakan</th>
                 </tr>
@@ -111,9 +111,9 @@
                     <td data-label="Kategori">
                         <x-kategori-pill :kategori="$item->kategoriPreset" />
                     </td>
-                    <td data-label="Baki">
+                    <td data-label="Baki" class="inventory-balance-cell">
                         @if($item->jumlah_belum_dibuka == 0)
-                            <span class="badge badge-danger">0 Unit (Habis Stok)</span>
+                            <span class="badge badge-danger inventory-empty-stock-badge">0 Unit</span>
                         @else
                             <strong style="color: #fff;">{{ $item->jumlah_belum_dibuka }}</strong> unit
                         @endif
@@ -124,8 +124,7 @@
                                 $daysToExpiry = now()->startOfDay()->diffInDays($item->tarikh_luput->startOfDay(), false);
                             @endphp
                             @if($daysToExpiry < 0)
-                                <div><span class="badge badge-danger">Telah Luput ({{ abs($daysToExpiry) }} hari)</span></div>
-                                <div style="font-size: 0.85rem; color: var(--color-danger); margin-top: 4px; font-weight: 500;">{{ $item->tarikh_luput->format('d/m/Y') }}</div>
+                                <span class="expiry-date-urgent expiry-date-expired">{{ $item->tarikh_luput->format('d/m/Y') }}</span>
                             @elseif($daysToExpiry <= 3)
                                 <div><span class="badge badge-warning">Hampir Luput ({{ $daysToExpiry }} hari)</span></div>
                                 <div style="font-size: 0.85rem; color: var(--color-warning); margin-top: 4px; font-weight: 500;">{{ $item->tarikh_luput->format('d/m/Y') }}</div>

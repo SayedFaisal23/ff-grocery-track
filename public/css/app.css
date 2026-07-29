@@ -322,6 +322,25 @@ button, input, select, textarea {
     font-size: 0.75rem;
 }
 
+.sortable-table-header-link.is-centered {
+    justify-content: center;
+    width: 100%;
+}
+
+.inventory-balance-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.inventory-empty-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-height: 24px;
+    vertical-align: middle;
+}
+
 .custom-table td {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
@@ -372,6 +391,20 @@ button, input, select, textarea {
 
 .adjustment-modal-secondary-actions .btn {
     width: 100%;
+}
+
+.expiry-date-urgent {
+    font-size: 0.85rem;
+    font-weight: 700;
+    animation: expiry-glow-pulse 0.65s ease-in-out infinite;
+}
+
+.expiry-date-expired {
+    color: var(--color-danger);
+}
+
+.expiry-date-warning {
+    color: var(--color-warning);
 }
 
 /* Badges */
@@ -705,20 +738,6 @@ select.form-control option {
     .item-expiry {
         font-size: 0.8rem;
         text-align: right;
-    }
-
-    .expiry-date-urgent {
-        font-size: 0.85rem;
-        font-weight: 700;
-        animation: expiry-glow-pulse 0.65s ease-in-out infinite;
-    }
-
-    .expiry-date-expired {
-        color: var(--color-danger);
-    }
-
-    .expiry-date-warning {
-        color: var(--color-warning);
     }
 
     .mobile-card-stats {
