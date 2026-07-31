@@ -47,6 +47,55 @@
     @endhasanyrole
 </div>
 
+<section class="inventory-summary" aria-labelledby="inventory-summary-title">
+    <div class="inventory-summary-heading">
+        <h2 id="inventory-summary-title">Ringkasan Inventori</h2>
+        <span>Gambaran keseluruhan stok</span>
+    </div>
+    <div class="grid-stats inventory-summary-grid">
+        <article class="card-stat">
+            <div class="inventory-stat-label">
+                <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>
+                <span>Jumlah Item</span>
+            </div>
+            <div class="stat-value">{{ number_format($inventorySummary['totalItems']) }}</div>
+            <span class="inventory-stat-description">Item berdaftar</span>
+        </article>
+        <article class="card-stat success">
+            <div class="inventory-stat-label">
+                <i class="fa-solid fa-cubes-stacked" aria-hidden="true"></i>
+                <span>Jumlah Unit</span>
+            </div>
+            <div class="stat-value">{{ number_format($inventorySummary['totalUnits']) }}</div>
+            <span class="inventory-stat-description">Unit tersedia</span>
+        </article>
+        <article class="card-stat danger">
+            <div class="inventory-stat-label">
+                <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i>
+                <span>Sudah Luput</span>
+            </div>
+            <div class="stat-value">{{ number_format($inventorySummary['expired']) }}</div>
+            <span class="inventory-stat-description">Perlu tindakan segera</span>
+        </article>
+        <article class="card-stat warning">
+            <div class="inventory-stat-label">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>Bawah Had</span>
+            </div>
+            <div class="stat-value">{{ number_format($inventorySummary['belowThreshold']) }}</div>
+            <span class="inventory-stat-description">Stok hampir habis</span>
+        </article>
+        <article class="card-stat danger inventory-summary-card-wide">
+            <div class="inventory-stat-label">
+                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+                <span>Habis Stok</span>
+            </div>
+            <div class="stat-value">{{ number_format($inventorySummary['outOfStock']) }}</div>
+            <span class="inventory-stat-description">Perlu restok segera</span>
+        </article>
+    </div>
+</section>
+
 <!-- Penapis dan Carian -->
 <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
     <form action="{{ route('inventori.index') }}" method="GET" class="inventori-filter-form">
@@ -113,9 +162,9 @@
                     </td>
                     <td data-label="Baki" class="inventory-balance-cell">
                         @if($item->jumlah_belum_dibuka == 0)
-                            <span class="badge badge-danger inventory-empty-stock-badge">0 Unit</span>
+                            <span class="badge badge-danger inventory-empty-stock-badge"><strong>0</strong><span class="inventory-unit-label">unit</span></span>
                         @else
-                            <strong style="color: #fff;">{{ $item->jumlah_belum_dibuka }}</strong> unit
+                            <strong style="color: #fff;">{{ $item->jumlah_belum_dibuka }}</strong> <span class="inventory-unit-label">unit</span>
                         @endif
                     </td>
                     <td data-label="Tarikh Luput">
@@ -126,8 +175,10 @@
                             @if($daysToExpiry < 0)
                                 <span class="expiry-date-urgent expiry-date-expired">{{ $item->tarikh_luput->format('d/m/Y') }}</span>
                             @elseif($daysToExpiry <= 3)
-                                <div><span class="badge badge-warning">Hampir Luput ({{ $daysToExpiry }} hari)</span></div>
-                                <div style="font-size: 0.85rem; color: var(--color-warning); margin-top: 4px; font-weight: 500;">{{ $item->tarikh_luput->format('d/m/Y') }}</div>
+                                <div class="inventory-expiry-warning">
+                                    <span class="badge badge-warning">Hampir Luput ({{ $daysToExpiry }} hari)</span>
+                                    <span class="inventory-expiry-warning-date">{{ $item->tarikh_luput->format('d/m/Y') }}</span>
+                                </div>
                             @else
                                 <span style="font-size: 0.9rem; color: var(--text-muted);">{{ $item->tarikh_luput->format('d/m/Y') }}</span>
                             @endif
@@ -184,30 +235,36 @@
                 <div class="item-name-group">
                     <span class="item-name">
                         {{ $item->nama_item }}
-                        <i class="fa-solid fa-pen-to-square mobile-card-action-cue" aria-hidden="true"></i>
                     </span>
                     @if($item->jenis || $item->capacity)
-                        <span style="font-size: 0.72rem; color: var(--text-dark); margin-top: 3px;">
+                        <span class="item-variant-line">
                             @if($item->jenis)<strong>{{ $item->jenis }}</strong>@endif
                             @if($item->jenis && $item->capacity) • @endif
                             @if($item->capacity)<strong>{{ $item->capacity }}</strong>@endif
                         </span>
+                    @else
+                        <span class="item-variant-line item-variant-line-placeholder" aria-hidden="true">&nbsp;</span>
                     @endif
                 </div>
-                <div class="item-expiry" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                <div class="item-expiry">
                     @if($item->jejak_luput && $item->tarikh_luput)
                         @php
                             $daysToExpiry = now()->startOfDay()->diffInDays($item->tarikh_luput->startOfDay(), false);
+                            $expiryDateClass = 'expiry-date-text';
+
+                            if ($daysToExpiry < 0) {
+                                $expiryDateClass .= ' expiry-date-urgent expiry-date-expired';
+                            } elseif ($daysToExpiry <= 3) {
+                                $expiryDateClass .= ' expiry-date-urgent expiry-date-warning';
+                            } else {
+                                $expiryDateClass .= ' expiry-date-text-muted';
+                            }
                         @endphp
-                        @if($daysToExpiry < 0)
-                            <span class="expiry-date-text expiry-date-urgent expiry-date-expired">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
-                        @elseif($daysToExpiry <= 3)
-                            <span class="expiry-date-text expiry-date-urgent expiry-date-warning">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
-                        @else
-                            <span class="expiry-date-text" style="font-size: 0.85rem; color: var(--text-muted);">EXP: {{ $item->tarikh_luput->format('d/m/Y') }}</span>
-                        @endif
+                        <span class="expiry-date-label">EXP:</span>
+                        <span class="{{ $expiryDateClass }}">{{ $item->tarikh_luput->format('d/m/Y') }}</span>
                     @else
-                        <span class="expiry-no-track" style="font-size: 0.8rem; color: var(--text-dark);">Tidak dijejak</span>
+                        <span class="expiry-date-label">EXP:</span>
+                        <span class="expiry-no-track">-</span>
                     @endif
                     <x-kategori-pill :kategori="$item->kategoriPreset" />
                 </div>
@@ -217,9 +274,9 @@
                     <span class="stat-label">Baki</span>
                     <span class="stat-val">
                         @if($item->jumlah_belum_dibuka == 0)
-                            <span class="badge badge-danger" style="padding: 2px 6px; font-size: 0.7rem; font-weight: 500;">0 Unit</span>
+                            <span class="badge badge-danger inventory-empty-stock-badge"><strong>0</strong><span class="inventory-unit-label">unit</span></span>
                         @else
-                            <strong>{{ $item->jumlah_belum_dibuka }}</strong> unit
+                            <strong>{{ $item->jumlah_belum_dibuka }}</strong><span class="inventory-unit-label">unit</span>
                         @endif
                     </span>
                 </div>

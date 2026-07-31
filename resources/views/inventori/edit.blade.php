@@ -84,7 +84,10 @@
         <div class="form-row" style="margin-top: 1rem;">
             <div class="form-group">
                 <label for="tarikh_luput" class="form-label">Tarikh Luput</label>
-                <input type="date" name="tarikh_luput" id="tarikh_luput" class="form-control @error('tarikh_luput') is-invalid @enderror" value="{{ old('tarikh_luput', $inventori->tarikh_luput ? $inventori->tarikh_luput->format('Y-m-d') : '') }}">
+                <x-expiry-date-input
+                    :value="old('tarikh_luput', $inventori->tarikh_luput ? $inventori->tarikh_luput->format('d/m/Y') : '')"
+                    :picker-value="$inventori->tarikh_luput ? $inventori->tarikh_luput->format('Y-m-d') : ''"
+                />
                 @error('tarikh_luput')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror

@@ -578,6 +578,88 @@ class FFGroceryTrackTest extends TestCase
             ->assertDontSee('mobile-card-actions', false);
     }
 
+    public function test_inventory_overview_counts_stock_and_expired_items(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+
+        Carbon::setTestNow('2026-07-30 12:00:00');
+
+        try {
+            foreach ([
+                ['nama_item' => 'Susu Segar', 'jumlah_belum_dibuka' => 4, 'had_ambang' => 1, 'tarikh_luput' => '2026-08-02', 'jejak_luput' => true],
+                ['nama_item' => 'Beras', 'jumlah_belum_dibuka' => 2, 'had_ambang' => 2, 'tarikh_luput' => '2026-08-06', 'jejak_luput' => true],
+                ['nama_item' => 'Biskut', 'jumlah_belum_dibuka' => 0, 'had_ambang' => 1, 'tarikh_luput' => null, 'jejak_luput' => false],
+                ['nama_item' => 'Yogurt', 'jumlah_belum_dibuka' => 5, 'had_ambang' => 1, 'tarikh_luput' => '2026-08-06', 'jejak_luput' => true],
+                ['nama_item' => 'Kopi', 'jumlah_belum_dibuka' => 10, 'had_ambang' => 2, 'tarikh_luput' => '2026-08-07', 'jejak_luput' => true],
+                ['nama_item' => 'Tepung', 'jumlah_belum_dibuka' => 5, 'had_ambang' => 1, 'tarikh_luput' => '2026-07-29', 'jejak_luput' => true],
+                ['nama_item' => 'Jus', 'jumlah_belum_dibuka' => 4, 'had_ambang' => 1, 'tarikh_luput' => '2026-08-01', 'jejak_luput' => false],
+            ] as $attributes) {
+                Inventori::create([
+                    ...$attributes,
+                    'kategori_id' => $this->kategori->id,
+                    'peratus_baki' => 100,
+                ]);
+            }
+
+            $response = $this->actingAs($tracker)->get('/inventori')->assertOk();
+
+            $this->assertSame([
+                'totalItems' => 7,
+                'totalUnits' => 30,
+                'outOfStock' => 1,
+                'belowThreshold' => 1,
+                'expired' => 1,
+            ], $response->viewData('inventorySummary'));
+            $response->assertSee('Ringkasan Inventori');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_inventory_expiry_date_uses_dd_mm_yyyy_format(): void
+    {
+        $tracker = User::factory()->create();
+        $tracker->assignRole('Tracker');
+        $item = Inventori::create([
+            'nama_item' => 'Teh Uncang Lipton',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 0,
+            'peratus_baki' => 100,
+            'had_ambang' => 1,
+            'tarikh_luput' => '2026-07-31',
+            'jejak_luput' => true,
+        ]);
+
+        $this->actingAs($tracker)
+            ->get('/inventori/create')
+            ->assertOk()
+            ->assertSee('placeholder="dd/mm/yyyy"', false)
+            ->assertSee('aria-label="Buka kalendar tarikh luput"', false);
+
+        $this->actingAs($tracker)
+            ->get('/inventori/'.$item->id.'/edit')
+            ->assertOk()
+            ->assertSee('value="31/07/2026"', false);
+
+        $this->actingAs($tracker)
+            ->put('/inventori/'.$item->id, [
+                'nama_item' => 'Teh Uncang Lipton',
+                'kategori_id' => $this->kategori->id,
+                'jumlah_belum_dibuka' => 0,
+                'peratus_baki' => 100,
+                'had_ambang' => 1,
+                'tarikh_luput' => '01/08/2026',
+                'jejak_luput' => '1',
+            ])
+            ->assertRedirect('/inventori');
+
+        $this->assertDatabaseHas('inventori', [
+            'id' => $item->id,
+            'tarikh_luput' => '2026-08-01',
+        ]);
+    }
+
     public function test_inventori_index_supports_single_column_sorting(): void
     {
         $tracker = User::factory()->create();
