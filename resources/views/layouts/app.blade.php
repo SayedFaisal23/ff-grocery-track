@@ -38,13 +38,16 @@
 
     <!-- Header Telefon Bimbit -->
     <div class="mobile-header">
+        <button id="sidebarToggle" class="btn btn-secondary btn-sm" style="padding: 8px 12px;">
+            <i class="fa-solid fa-bars"></i>
+        </button>
         <div class="logo-container" style="margin-bottom: 0;">
             <div class="logo-icon">F</div>
             <div class="logo-text" style="font-size: 1.25rem;">FFGrocery</div>
         </div>
-        <button id="sidebarToggle" class="btn btn-secondary btn-sm" style="padding: 8px 12px;">
+        <span class="btn btn-secondary btn-sm" aria-hidden="true" tabindex="-1" style="padding: 8px 12px; visibility: hidden;">
             <i class="fa-solid fa-bars"></i>
-        </button>
+        </span>
     </div>
 
     <div class="app-container">
