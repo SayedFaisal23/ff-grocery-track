@@ -6,6 +6,7 @@ use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\LogAktivitiController;
 use App\Http\Controllers\PenggunaController;
 use App\Http\Controllers\TuntutanController;
+use App\Http\Controllers\TuntutanPresetController;
 use Illuminate\Support\Facades\Route;
 
 // Laluan Log Masuk / Keluar
@@ -26,13 +27,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/inventori/{inventori}/adjust', [InventoriController::class, 'adjustStock'])->name('inventori.adjust');
     Route::resource('inventori', InventoriController::class);
 
-    // Pengurusan Tuntutan (Reimbursement)
+    // Pengurusan Permohonan Pembelian
     Route::middleware(['role:Superadmin|Stocker'])->group(function () {
         Route::get('/tuntutan', [TuntutanController::class, 'index'])->name('tuntutan.index');
         Route::get('/tuntutan/tambah', [TuntutanController::class, 'create'])->name('tuntutan.create');
         Route::post('/tuntutan', [TuntutanController::class, 'store'])->name('tuntutan.store');
         Route::get('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'showAttachment'])->name('tuntutan.attachment');
-        Route::patch('/tuntutan/{tuntutan}/status', [TuntutanController::class, 'updateStatus'])->name('tuntutan.status');
     });
 
     // Laluan Khas untuk Superadmin sahaja
@@ -42,6 +42,13 @@ Route::middleware(['auth'])->group(function () {
             ->name('kategori.update-all');
         Route::resource('kategori', KategoriController::class)
             ->only(['index', 'store', 'destroy']);
+
+        // Tetapan pilihan permohonan pembelian
+        Route::resource('tuntutan-preset', TuntutanPresetController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
+
+        Route::patch('/tuntutan/{tuntutan}/status', [TuntutanController::class, 'updateStatus'])
+            ->name('tuntutan.status');
 
         // Pengurusan Akaun Pengguna
         Route::resource('pengguna', PenggunaController::class);

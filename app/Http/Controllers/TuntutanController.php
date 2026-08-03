@@ -2,49 +2,50 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tuntutan;
 use App\Models\LogAktiviti;
+use App\Models\Tuntutan;
+use App\Models\TuntutanPreset;
+use Carbon\Carbon;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
 class TuntutanController extends Controller
 {
     /**
-     * Paparkan senarai tuntutan berkumpulan mengikut minggu.
+     * Paparkan senarai permohonan mengikut minggu.
      */
     public function index()
     {
         $user = Auth::user();
-        $query = Tuntutan::query();
+        $query = Tuntutan::query()->with(['user', 'reviewer']);
 
-        // Stocker hanya boleh melihat tuntutan sendiri.
-        // Superadmin & Tracker boleh melihat semua tuntutan.
         if ($user->hasRole('Stocker')) {
             $query->where('user_id', $user->id);
         }
 
-        // Dapatkan semua tuntutan dan urutkan mengikut tarikh beli terkini
-        $claims = $query->orderBy('tarikh_beli', 'desc')->get();
-
-        // Kumpulkan mengikut minggu_tuntutan
+        $claims = $query->orderByDesc('tarikh_beli')->get();
         $claimsGrouped = $claims->groupBy('minggu_tuntutan');
 
         return view('tuntutan.index', compact('claimsGrouped'));
     }
 
     /**
-     * Tunjukkan borang tambah tuntutan.
+     * Tunjukkan borang permohonan pembelian.
      */
     public function create()
     {
-        // Hanya Stocker sahaja dibenarkan membuat tuntutan
-        if (!Auth::user()->hasRole('Stocker')) {
-            abort(403, 'Hanya Stocker sahaja dibenarkan membuat tuntutan.');
+        if (! Auth::user()->hasRole('Stocker')) {
+            abort(403, 'Hanya Stocker sahaja dibenarkan membuat permohonan.');
         }
 
-        return view('tuntutan.create');
+        $platforms = $this->presetsFor(TuntutanPreset::TYPE_PURCHASE_PLATFORM);
+        $paymentMethods = $this->presetsFor(TuntutanPreset::TYPE_PAYMENT_METHOD);
+
+        return view('tuntutan.create', compact('platforms', 'paymentMethods'));
     }
 
     /**
@@ -79,194 +80,257 @@ class TuntutanController extends Controller
     }
 
     /**
-     * Simpan tuntutan baharu.
+     * Simpan permohonan pembelian atau tuntutan Lunch mingguan.
      */
     public function store(Request $request)
     {
-        if (!Auth::user()->hasRole('Stocker')) {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Stocker')) {
             abort(403);
         }
 
         $tag = $request->input('tag');
-        if (!in_array($tag, ['Stok', 'Lunch', 'General', 'Food'])) {
-            return back()->withInput()->withErrors(['tag' => 'Jenis tuntutan tidak sah.']);
+        if (! in_array($tag, ['Pantry', 'General', 'Lunch'], true)) {
+            return back()->withInput()->withErrors(['tag' => 'Jenis permohonan tidak sah.']);
         }
 
-        if ($tag === 'Stok' || $tag === 'General' || $tag === 'Food') {
-            $validated = $request->validate([
-                'nama_item'      => 'required|string|max:255',
-                'tag'            => 'required|in:Stok,General,Food',
-                'nilai_tuntutan' => 'required|numeric|min:0.01',
-                'tarikh_beli'    => 'required|date|before_or_equal:today',
-                'attachment'     => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
-            ], [
-                'nama_item.required'      => 'Sila masukkan nama item yang dibeli.',
-                'nilai_tuntutan.required' => 'Sila masukkan nilai tuntutan.',
-                'nilai_tuntutan.numeric'  => 'Nilai tuntutan mestilah dalam bentuk nombor.',
-                'nilai_tuntutan.min'      => 'Nilai tuntutan mestilah lebih daripada RM0.00.',
-                'tarikh_beli.required'    => 'Sila masukkan tarikh pembelian.',
-                'tarikh_beli.before_or_equal' => 'Tarikh pembelian tidak boleh pada masa hadapan.',
-                'attachment.mimes'        => 'Dokumen mestilah berformat JPEG, JPG, PNG atau PDF.',
-                'attachment.max'          => 'Saiz fail dokumen tidak boleh melebihi 5MB.',
-            ]);
-
-            // Hitung minggu tuntutan (Format: YYYY-Www)
-            $date = Carbon::parse($request->tarikh_beli);
-            // Dapatkan tahun ISO-8601 dan nombor minggu
-            $year = $date->format('o'); 
-            $week = sprintf('%02d', $date->weekOfYear);
-            $validated['minggu_tuntutan'] = "{$year}-W{$week}";
-            $validated['user_id'] = Auth::id();
-            $validated['status'] = 'Dalam Proses'; // Default status
-
-            if ($request->hasFile('attachment')) {
-                $validated['attachment'] = $request->file('attachment')->store('attachments', 'public');
-            }
-
-            $claim = Tuntutan::create($validated);
-
-            // Log Aktiviti
-            LogAktiviti::create([
-                'user_id'  => Auth::id(),
-                'aktiviti' => "Membuat tuntutan baharu bagi pembelian: {$claim->nama_item} [{$claim->tag}] bernilai RM{$claim->nilai_tuntutan}.",
-                'item_id'  => null,
-                'data_baru' => $claim->toArray(),
-            ]);
+        if ($tag === 'Lunch') {
+            $this->storeLunchClaims($request, $user->id, $user->name);
         } else {
-            // Lunch claim
-            $request->validate([
-                'week'            => 'required|regex:/^\d{4}-W\d{2}$/',
-                'lunch_dates'     => 'required|array|size:7',
-                'lunch_dates.*'   => 'required|date',
-                'lunch_butirans'  => 'required|array|size:7',
-                'lunch_pax'       => 'required|array|size:7',
-                'lunch_pax.*'     => 'nullable|integer|min:0',
-                'lunch_hargas'    => 'required|array|size:7',
-                'lunch_hargas.*'  => 'nullable|numeric|min:0',
-                'attachment'      => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
-            ], [
-                'week.required'       => 'Sila pilih minggu.',
-                'week.regex'          => 'Format minggu tidak sah.',
-                'attachment.mimes'    => 'Dokumen mestilah berformat JPEG, JPG, PNG atau PDF.',
-                'attachment.max'      => 'Saiz fail dokumen tidak boleh melebihi 5MB.',
-            ]);
-
-            $lunchDates = $request->input('lunch_dates');
-            $lunchButirans = $request->input('lunch_butirans');
-            $lunchPaxes = $request->input('lunch_pax');
-            $lunchHargas = $request->input('lunch_hargas');
-            $week = $request->input('week');
-
-            $totalClaims = 0;
-            $hasFutureDate = false;
-            $missingButiran = false;
-            $missingHarga = false;
-
-            for ($i = 0; $i < 7; $i++) {
-                $pax = intval($lunchPaxes[$i] ?? 0);
-                if ($pax > 0) {
-                    $totalClaims++;
-                    
-                    // Check if date is in the future
-                    $date = Carbon::parse($lunchDates[$i]);
-                    if ($date->isFuture()) {
-                        $hasFutureDate = true;
-                    }
-
-                    // Check if butiran is missing
-                    if (empty(trim($lunchButirans[$i] ?? ''))) {
-                        $missingButiran = true;
-                    }
-
-                    // Check if harga is missing or <= 0
-                    $harga = floatval($lunchHargas[$i] ?? 0);
-                    if ($harga <= 0) {
-                        $missingHarga = true;
-                    }
-                }
-            }
-
-            if ($totalClaims === 0) {
-                return back()->withInput()->withErrors(['lunch_pax' => 'Sila tuntut sekurang-kurangnya untuk satu hari.']);
-            }
-
-            if ($hasFutureDate) {
-                return back()->withInput()->withErrors(['lunch_dates' => 'Tarikh tuntutan tidak boleh pada masa hadapan.']);
-            }
-
-            if ($missingButiran) {
-                return back()->withInput()->withErrors(['lunch_butirans' => 'Butiran lunch tidak boleh dikosongkan bagi hari yang dituntut.']);
-            }
-
-            if ($missingHarga) {
-                return back()->withInput()->withErrors(['lunch_hargas' => 'Sila masukkan harga per pax yang sah untuk hari yang dituntut.']);
-            }
-
-            $attachmentPath = null;
-            if ($request->hasFile('attachment')) {
-                $attachmentPath = $request->file('attachment')->store('attachments', 'public');
-            }
-
-            // Create claims
-            for ($i = 0; $i < 7; $i++) {
-                $pax = intval($lunchPaxes[$i] ?? 0);
-                if ($pax > 0) {
-                    $butiran = trim($lunchButirans[$i]);
-                    $harga = floatval($lunchHargas[$i]);
-                    $nilai = $pax * $harga;
-                    
-                    $claim = Tuntutan::create([
-                        'user_id'         => Auth::id(),
-                        'nama_item'       => "{$butiran} ({$pax} pax @ RM " . number_format($harga, 2) . "/pax)",
-                        'tag'             => 'Lunch',
-                        'nilai_tuntutan'  => $nilai,
-                        'tarikh_beli'     => $lunchDates[$i],
-                        'minggu_tuntutan' => $week,
-                        'status'          => 'Dalam Proses',
-                        'attachment'      => $attachmentPath,
-                    ]);
-
-                    // Log Aktiviti
-                    LogAktiviti::create([
-                        'user_id'  => Auth::id(),
-                        'aktiviti' => "Membuat tuntutan baharu bagi lunch: {$claim->nama_item} bernilai RM{$claim->nilai_tuntutan}.",
-                        'item_id'  => null,
-                        'data_baru' => $claim->toArray(),
-                    ]);
-                }
-            }
+            $this->storePurchaseRequest($request, $user->id, $user->name, $tag);
         }
 
-        return redirect()->route('tuntutan.index')->with('success', 'Tuntutan berjaya dihantar.');
+        return redirect()->route('tuntutan.index')->with('success', 'Permohonan berjaya dihantar.');
     }
 
     /**
-     * Kemaskini status tuntutan (Hanya untuk Superadmin).
+     * Lengkapkan permohonan Pending dengan keputusan Superadmin.
      */
     public function updateStatus(Request $request, Tuntutan $tuntutan)
     {
-        if (!Auth::user()->hasRole('Superadmin')) {
-            abort(403, 'Hanya Superadmin sahaja dibenarkan menguruskan status tuntutan.');
+        $user = Auth::user();
+
+        if (! $user->hasRole('Superadmin')) {
+            abort(403, 'Hanya Superadmin sahaja dibenarkan menguruskan status permohonan.');
         }
 
-        $request->validate([
-            'status' => 'required|in:Selesai,Ditolak,Dalam Proses',
+        $validated = $request->validate([
+            'approval_result' => ['required', Rule::in(['Approved', 'Rejected'])],
         ]);
 
-        $oldData = $tuntutan->toArray();
-        $tuntutan->update([
-            'status' => $request->status,
-        ]);
+        $result = DB::transaction(function () use ($tuntutan, $user, $validated) {
+            $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
 
-        // Log Aktiviti
+            if ($claim->status !== 'Pending') {
+                return null;
+            }
+
+            $oldData = $claim->toArray();
+            $claim->update([
+                'status' => 'Completed',
+                'approval_result' => $validated['approval_result'],
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
+            ]);
+
+            return [$oldData, $claim];
+        });
+
+        if ($result === null) {
+            return back()->with('error', 'Permohonan ini telah selesai dan tidak boleh dikemaskini lagi.');
+        }
+
+        [$oldData, $claim] = $result;
+        $decision = $claim->approval_result === 'Approved' ? 'meluluskan' : 'menolak';
+
         LogAktiviti::create([
-            'user_id' => Auth::id(),
-            'aktiviti' => "Mengemaskini status tuntutan ID {$tuntutan->id} ({$tuntutan->nama_item}) kepada '{$tuntutan->status}'.",
+            'user_id' => $user->id,
+            'aktiviti' => "{$user->name} telah {$decision} permohonan ID {$claim->id} ({$claim->nama_item}).",
             'item_id' => null,
             'data_lama' => $oldData,
-            'data_baru' => $tuntutan->toArray(),
+            'data_baru' => $claim->toArray(),
         ]);
 
-        return back()->with('success', 'Status tuntutan berjaya dikemaskini.');
+        return back()->with('success', 'Keputusan permohonan berjaya direkodkan.');
+    }
+
+    private function storePurchaseRequest(Request $request, int $userId, string $requestorName, string $tag): void
+    {
+        $validated = $request->validate([
+            'tag' => ['required', Rule::in(['Pantry', 'General'])],
+            'request_date' => ['required', 'date', 'before_or_equal:today'],
+            'item_specification' => ['required', 'string', 'max:255'],
+            'purchase_purpose' => ['required', 'string', 'max:1000'],
+            'invoice_no' => ['nullable', 'string', 'max:255'],
+            'purchase_platform' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::exists('tuntutan_presets', 'name')
+                    ->where('type', TuntutanPreset::TYPE_PURCHASE_PLATFORM),
+            ],
+            'total_item_amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::exists('tuntutan_presets', 'name')
+                    ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD),
+            ],
+            'invoice_sent_to_account' => ['required', 'boolean'],
+            'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
+            'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+        ], [
+            'purchase_platform.exists' => 'Sila pilih platform pembelian yang telah ditetapkan oleh Superadmin.',
+            'payment_method.exists' => 'Sila pilih kaedah bayaran yang telah ditetapkan oleh Superadmin.',
+            'date_receive.after_or_equal' => 'Tarikh terima tidak boleh sebelum tarikh permohonan.',
+        ]);
+
+        $requestDate = Carbon::parse($validated['request_date']);
+        $claim = Tuntutan::create([
+            'user_id' => $userId,
+            'requestor_name' => $requestorName,
+            'nama_item' => $validated['item_specification'],
+            'item_specification' => $validated['item_specification'],
+            'purchase_purpose' => $validated['purchase_purpose'],
+            'invoice_no' => $validated['invoice_no'] ?? null,
+            'purchase_platform' => $validated['purchase_platform'],
+            'tag' => $tag,
+            'nilai_tuntutan' => $validated['total_item_amount'],
+            'total_item_amount' => $validated['total_item_amount'],
+            'payment_method' => $validated['payment_method'],
+            'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
+            'request_date' => $validated['request_date'],
+            'date_receive' => $validated['date_receive'],
+            'tarikh_beli' => $validated['request_date'],
+            'minggu_tuntutan' => $this->weekFor($requestDate),
+            'status' => 'Pending',
+            'attachment' => $this->storeAttachment($request),
+        ]);
+
+        LogAktiviti::create([
+            'user_id' => $userId,
+            'aktiviti' => "Menghantar permohonan pembelian {$claim->tag}: {$claim->nama_item} bernilai RM{$claim->nilai_tuntutan}.",
+            'item_id' => null,
+            'data_baru' => $claim->toArray(),
+        ]);
+    }
+
+    private function storeLunchClaims(Request $request, int $userId, string $requestorName): void
+    {
+        $request->validate([
+            'week' => ['required', 'regex:/^\d{4}-W\d{2}$/'],
+            'lunch_dates' => ['required', 'array', 'size:7'],
+            'lunch_dates.*' => ['required', 'date'],
+            'lunch_butirans' => ['required', 'array', 'size:7'],
+            'lunch_pax' => ['required', 'array', 'size:7'],
+            'lunch_pax.*' => ['nullable', 'integer', 'min:0'],
+            'lunch_hargas' => ['required', 'array', 'size:7'],
+            'lunch_hargas.*' => ['nullable', 'numeric', 'min:0'],
+            'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+        ]);
+
+        $lunchDates = $request->input('lunch_dates');
+        $lunchButirans = $request->input('lunch_butirans');
+        $lunchPaxes = $request->input('lunch_pax');
+        $lunchHargas = $request->input('lunch_hargas');
+        $week = $request->input('week');
+        $hasClaim = false;
+
+        for ($i = 0; $i < 7; $i++) {
+            $pax = (int) ($lunchPaxes[$i] ?? 0);
+            if ($pax === 0) {
+                continue;
+            }
+
+            $hasClaim = true;
+            $date = Carbon::parse($lunchDates[$i]);
+            $butiran = trim((string) ($lunchButirans[$i] ?? ''));
+            $harga = (float) ($lunchHargas[$i] ?? 0);
+
+            if ($date->isFuture()) {
+                throw new HttpResponseException(
+                    back()->withInput()->withErrors(['lunch_dates' => 'Tarikh tuntutan tidak boleh pada masa hadapan.'])
+                );
+            }
+
+            if ($butiran === '') {
+                throw new HttpResponseException(
+                    back()->withInput()->withErrors(['lunch_butirans' => 'Butiran lunch tidak boleh dikosongkan bagi hari yang dituntut.'])
+                );
+            }
+
+            if ($harga <= 0) {
+                throw new HttpResponseException(
+                    back()->withInput()->withErrors(['lunch_hargas' => 'Sila masukkan harga per pax yang sah untuk hari yang dituntut.'])
+                );
+            }
+        }
+
+        if (! $hasClaim) {
+            throw new HttpResponseException(
+                back()->withInput()->withErrors(['lunch_pax' => 'Sila tuntut sekurang-kurangnya untuk satu hari.'])
+            );
+        }
+
+        $attachmentPath = $this->storeAttachment($request);
+
+        DB::transaction(function () use ($lunchDates, $lunchButirans, $lunchPaxes, $lunchHargas, $week, $attachmentPath, $userId, $requestorName): void {
+            for ($i = 0; $i < 7; $i++) {
+                $pax = (int) ($lunchPaxes[$i] ?? 0);
+                if ($pax === 0) {
+                    continue;
+                }
+
+                $butiran = trim((string) $lunchButirans[$i]);
+                $harga = (float) $lunchHargas[$i];
+                $nilai = $pax * $harga;
+                $namaItem = "{$butiran} ({$pax} pax @ RM ".number_format($harga, 2).'/pax)';
+
+                $claim = Tuntutan::create([
+                    'user_id' => $userId,
+                    'requestor_name' => $requestorName,
+                    'request_date' => now()->toDateString(),
+                    'nama_item' => $namaItem,
+                    'item_specification' => $butiran,
+                    'tag' => 'Lunch',
+                    'nilai_tuntutan' => $nilai,
+                    'total_item_amount' => $nilai,
+                    'tarikh_beli' => $lunchDates[$i],
+                    'minggu_tuntutan' => $week,
+                    'status' => 'Pending',
+                    'attachment' => $attachmentPath,
+                ]);
+
+                LogAktiviti::create([
+                    'user_id' => $userId,
+                    'aktiviti' => "Menghantar tuntutan lunch: {$claim->nama_item} bernilai RM{$claim->nilai_tuntutan}.",
+                    'item_id' => null,
+                    'data_baru' => $claim->toArray(),
+                ]);
+            }
+        });
+    }
+
+    private function storeAttachment(Request $request): ?string
+    {
+        return $request->hasFile('attachment')
+            ? $request->file('attachment')->store('attachments', 'public')
+            : null;
+    }
+
+    private function presetsFor(string $type)
+    {
+        return TuntutanPreset::query()
+            ->forType($type)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function weekFor(Carbon $date): string
+    {
+        return $date->format('o').'-W'.sprintf('%02d', $date->weekOfYear);
     }
 }

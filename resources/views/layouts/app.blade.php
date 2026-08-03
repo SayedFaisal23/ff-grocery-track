@@ -83,6 +83,11 @@
                     <span>Pengurusan Kategori</span>
                 </a>
 
+                <a href="{{ route('tuntutan-preset.index') }}" class="nav-item {{ Request::routeIs('tuntutan-preset.*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Tetapan Tuntutan</span>
+                </a>
+
                 <a href="{{ route('pengguna.index') }}" class="nav-item {{ Request::routeIs('pengguna.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-users"></i>
                     <span>Pengurusan Pengguna</span>

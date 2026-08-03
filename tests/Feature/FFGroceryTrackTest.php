@@ -6,6 +6,7 @@ use App\Models\Inventori;
 use App\Models\Kategori;
 use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
+use App\Models\TuntutanPreset;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -284,57 +285,261 @@ class FFGroceryTrackTest extends TestCase
         $response4->assertSessionHasErrors(['lunch_hargas']);
     }
 
-    public function test_stocker_can_submit_general_and_food_claim_with_attachment(): void
+    public function test_stocker_can_submit_pantries_and_general_purchase_requests_with_attachment(): void
     {
         Storage::fake('public');
 
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Shopee',
+            'sort_order' => 1,
+        ]);
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
+            'name' => 'Bank Transfer',
+            'sort_order' => 1,
+        ]);
 
-        $file = UploadedFile::fake()->create('receipt.pdf', 100); // 100kb PDF
+        $file = UploadedFile::fake()->create('quotation.pdf', 100);
 
-        // 1. Test General claim
+        $responsePantry = $this->actingAs($stocker)->post('/tuntutan', [
+            'tag' => 'Pantry',
+            'request_date' => '2026-07-20',
+            'item_specification' => '12 kotak susu segar 1L',
+            'purchase_purpose' => 'Untuk stok pantry mingguan.',
+            'invoice_no' => 'QT-1001',
+            'purchase_platform' => 'Shopee',
+            'total_item_amount' => 45.90,
+            'payment_method' => 'Bank Transfer',
+            'invoice_sent_to_account' => 1,
+            'date_receive' => '2026-07-23',
+            'attachment' => $file,
+        ]);
+
+        $responsePantry->assertRedirect('/tuntutan');
+        $this->assertDatabaseHas('tuntutan', [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'tag' => 'Pantry',
+            'item_specification' => '12 kotak susu segar 1L',
+            'purchase_platform' => 'Shopee',
+            'payment_method' => 'Bank Transfer',
+            'status' => 'Pending',
+            'approval_result' => null,
+        ]);
+
+        $pantryRequest = Tuntutan::where('tag', 'Pantry')->firstOrFail();
+        $this->assertNotNull($pantryRequest->attachment);
+        Storage::disk('public')->assertExists($pantryRequest->attachment);
+
         $responseGeneral = $this->actingAs($stocker)->post('/tuntutan', [
             'tag' => 'General',
-            'nama_item' => 'Barang Pejabat A4 Paper',
-            'nilai_tuntutan' => 45.90,
-            'tarikh_beli' => '2026-07-20',
-            'attachment' => $file,
+            'request_date' => '2026-07-20',
+            'item_specification' => 'Kertas A4',
+            'purchase_purpose' => 'Untuk kegunaan pentadbiran.',
+            'purchase_platform' => 'Shopee',
+            'total_item_amount' => 150.00,
+            'payment_method' => 'Bank Transfer',
+            'invoice_sent_to_account' => 0,
+            'date_receive' => '2026-07-25',
         ]);
 
         $responseGeneral->assertRedirect('/tuntutan');
         $this->assertDatabaseHas('tuntutan', [
             'user_id' => $stocker->id,
             'tag' => 'General',
-            'nilai_tuntutan' => 45.90,
-            'nama_item' => 'Barang Pejabat A4 Paper',
+            'total_item_amount' => 150.00,
+            'item_specification' => 'Kertas A4',
+            'status' => 'Pending',
+        ]);
+    }
+
+    public function test_purchase_request_form_shows_the_new_fields_and_keeps_lunch_weekly(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Kedai Fizikal',
+            'sort_order' => 1,
+        ]);
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
+            'name' => 'Tunai',
+            'sort_order' => 1,
         ]);
 
-        $claimGeneral = Tuntutan::where('tag', 'General')->first();
-        $this->assertNotNull($claimGeneral->attachment);
-        Storage::disk('public')->assertExists($claimGeneral->attachment);
+        $this->actingAs($stocker)
+            ->get('/tuntutan/tambah')
+            ->assertOk()
+            ->assertSee('Purchase Request Form')
+            ->assertSee('Spesifikasi Item')
+            ->assertSee('Tujuan Pembelian')
+            ->assertSee('Platform Pembelian')
+            ->assertSee('Saluran / Kaedah Bayaran')
+            ->assertSee('Butiran Lunch Mengikut Hari')
+            ->assertSee('Pantry')
+            ->assertDontSee('Food');
+    }
 
-        // 2. Test Food claim
-        $file2 = UploadedFile::fake()->create('food_receipt.png', 200); // 200kb Image
-        $responseFood = $this->actingAs($stocker)->post('/tuntutan', [
-            'tag' => 'Food',
-            'nama_item' => 'Katering Makan Malam',
-            'nilai_tuntutan' => 150.00,
-            'tarikh_beli' => '2026-07-20',
-            'attachment' => $file2,
-        ]);
+    public function test_purchase_request_rejects_invalid_amount_dates_and_presets(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
 
-        $responseFood->assertRedirect('/tuntutan');
-        $this->assertDatabaseHas('tuntutan', [
+        $this->actingAs($stocker)
+            ->post('/tuntutan', [
+                'tag' => 'Pantry',
+                'request_date' => '2026-07-20',
+                'item_specification' => 'Barang ujian',
+                'purchase_purpose' => 'Ujian pengesahan.',
+                'purchase_platform' => 'Platform tidak wujud',
+                'total_item_amount' => 0,
+                'payment_method' => 'Kaedah tidak wujud',
+                'invoice_sent_to_account' => 1,
+                'date_receive' => '2026-07-19',
+            ])
+            ->assertSessionHasErrors([
+                'purchase_platform',
+                'total_item_amount',
+                'payment_method',
+                'date_receive',
+            ]);
+    }
+
+    public function test_superadmin_can_complete_a_pending_request_once(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $request = Tuntutan::create([
             'user_id' => $stocker->id,
-            'tag' => 'Food',
-            'nilai_tuntutan' => 150.00,
-            'nama_item' => 'Katering Makan Malam',
+            'requestor_name' => $stocker->name,
+            'nama_item' => 'Barang Ujian',
+            'item_specification' => 'Barang Ujian',
+            'tag' => 'Pantry',
+            'nilai_tuntutan' => 25.00,
+            'total_item_amount' => 25.00,
+            'tarikh_beli' => '2026-07-20',
+            'request_date' => '2026-07-20',
+            'minggu_tuntutan' => '2026-W30',
+            'status' => 'Pending',
         ]);
 
-        $claimFood = Tuntutan::where('tag', 'Food')->first();
-        $this->assertNotNull($claimFood->attachment);
-        Storage::disk('public')->assertExists($claimFood->attachment);
+        $this->actingAs($stocker)
+            ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Approved'])
+            ->assertForbidden();
+
+        $this->actingAs($superadmin)
+            ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Approved'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tuntutan', [
+            'id' => $request->id,
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+            'reviewed_by' => $superadmin->id,
+        ]);
+
+        $this->actingAs($superadmin)
+            ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Rejected'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tuntutan', [
+            'id' => $request->id,
+            'approval_result' => 'Approved',
+        ]);
+    }
+
+    public function test_only_superadmin_can_manage_purchase_request_presets(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+
+        $this->actingAs($stocker)->get('/tuntutan-preset')->assertForbidden();
+
+        $this->actingAs($superadmin)
+            ->post('/tuntutan-preset', [
+                'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+                'name' => 'Kedai Fizikal',
+            ])
+            ->assertRedirect('/tuntutan-preset');
+
+        $preset = TuntutanPreset::firstOrFail();
+        $this->assertSame(1, $preset->sort_order);
+
+        $this->actingAs($superadmin)
+            ->put("/tuntutan-preset/{$preset->id}", [
+                'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+                'name' => 'Kedai Runcit',
+                'sort_order' => 3,
+            ])
+            ->assertRedirect('/tuntutan-preset');
+
+        $this->assertDatabaseHas('tuntutan_presets', [
+            'id' => $preset->id,
+            'name' => 'Kedai Runcit',
+            'sort_order' => 3,
+        ]);
+
+        $this->actingAs($superadmin)
+            ->delete("/tuntutan-preset/{$preset->id}")
+            ->assertRedirect('/tuntutan-preset');
+
+        $this->assertDatabaseMissing('tuntutan_presets', ['id' => $preset->id]);
+    }
+
+    public function test_api_uses_purchase_request_fields_and_completion_workflow(): void
+    {
+        $stocker = User::factory()->create(['api_token' => 'stocker-purchase-token']);
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create(['api_token' => 'superadmin-purchase-token']);
+        $superadmin->assignRole('Superadmin');
+
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Lazada',
+            'sort_order' => 1,
+        ]);
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
+            'name' => 'Corporate Card',
+            'sort_order' => 1,
+        ]);
+
+        $createResponse = $this->withToken('stocker-purchase-token')
+            ->postJson('/api/tuntutan', [
+                'tag' => 'General',
+                'request_date' => '2026-07-20',
+                'item_specification' => 'Kertas A4 80gsm',
+                'purchase_purpose' => 'Kegunaan pentadbiran pejabat.',
+                'purchase_platform' => 'Lazada',
+                'total_item_amount' => 24.50,
+                'payment_method' => 'Corporate Card',
+                'invoice_sent_to_account' => false,
+                'date_receive' => '2026-07-24',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'Pending')
+            ->assertJsonPath('requestor_name', $stocker->name);
+
+        $claimId = $createResponse->json('id');
+
+        $this->withToken('superadmin-purchase-token')
+            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Rejected'])
+            ->assertOk()
+            ->assertJsonPath('status', 'Completed')
+            ->assertJsonPath('approval_result', 'Rejected');
+
+        $this->withToken('superadmin-purchase-token')
+            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Approved'])
+            ->assertStatus(409);
     }
 
     public function test_claim_attachment_is_available_to_its_owner_and_superadmin_only(): void
@@ -356,11 +561,11 @@ class FFGroceryTrackTest extends TestCase
         $claim = Tuntutan::create([
             'user_id' => $owner->id,
             'nama_item' => 'Barang Ujian',
-            'tag' => 'Stok',
+            'tag' => 'Pantry',
             'nilai_tuntutan' => 10.00,
             'tarikh_beli' => '2026-07-20',
             'minggu_tuntutan' => '2026-W30',
-            'status' => 'Dalam Proses',
+            'status' => 'Pending',
             'attachment' => $attachmentPath,
         ]);
 

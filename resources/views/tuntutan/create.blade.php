@@ -1,52 +1,40 @@
 @extends('layouts.app')
 
-@section('title', 'Hantar Tuntutan')
+@section('title', 'Hantar Permohonan')
 
 @section('content')
 <div class="page-header">
     <div class="page-title">
-        <h1>Borang Tuntutan Pembelian</h1>
-        <p>Tambah barangan yang dibeli untuk menuntut pembayaran semula</p>
+        <h1>Borang Permohonan Pembelian</h1>
+        <p>Hantar permohonan sebelum membuat pembelian</p>
     </div>
     <a href="{{ route('tuntutan.index') }}" class="btn btn-secondary">
         <i class="fa-solid fa-arrow-left"></i> Kembali
     </a>
 </div>
 
-<div class="card" style="max-width: 720px;">
+<div class="card" style="max-width: 800px;">
     <form action="{{ route('tuntutan.store') }}" method="POST" id="tuntutanForm" enctype="multipart/form-data">
         @csrf
 
-        {{-- Hidden fields submitted to backend --}}
-        <input type="hidden" name="nama_item"      id="nama_item_hidden">
-        <input type="hidden" name="nilai_tuntutan" id="nilai_tuntutan_hidden">
-
-        {{-- ══════════════════════════════════════
-             TAG SELECTOR
-        ══════════════════════════════════════ --}}
         <div style="margin-bottom: 1.75rem;">
             <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; display: block;">
                 <i class="fa-solid fa-tag" style="color: var(--color-primary); margin-right: 6px;"></i>
                 Jenis Tuntutan
             </label>
-            <div style="display: flex; gap: 10px;">
-                <label class="tag-pill" id="pill-stok">
-                    <input type="radio" name="tag" value="Stok" {{ old('tag', '') === 'Stok' ? 'checked' : '' }} required>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <label class="tag-pill">
+                    <input type="radio" name="tag" value="Pantry" {{ old('tag') === 'Pantry' ? 'checked' : '' }} required>
                     <i class="fa-solid fa-boxes-stacked"></i>
-                    <span>Stok</span>
+                    <span>Pantry</span>
                 </label>
-                <label class="tag-pill" id="pill-general">
-                    <input type="radio" name="tag" value="General" {{ old('tag', '') === 'General' ? 'checked' : '' }}>
+                <label class="tag-pill">
+                    <input type="radio" name="tag" value="General" {{ old('tag') === 'General' ? 'checked' : '' }}>
                     <i class="fa-solid fa-folder-open"></i>
                     <span>General</span>
                 </label>
-                <label class="tag-pill" id="pill-food">
-                    <input type="radio" name="tag" value="Food" {{ old('tag', '') === 'Food' ? 'checked' : '' }}>
-                    <i class="fa-solid fa-bowl-food"></i>
-                    <span>Food</span>
-                </label>
-                <label class="tag-pill" id="pill-lunch">
-                    <input type="radio" name="tag" value="Lunch" {{ old('tag', '') === 'Lunch' ? 'checked' : '' }}>
+                <label class="tag-pill">
+                    <input type="radio" name="tag" value="Lunch" {{ old('tag') === 'Lunch' ? 'checked' : '' }}>
                     <i class="fa-solid fa-utensils"></i>
                     <span>Lunch</span>
                 </label>
@@ -56,140 +44,165 @@
             @enderror
         </div>
 
-        {{-- ══════════════════════════════════════
-             STOK SECTION
-        ══════════════════════════════════════ --}}
-        <div id="section-stok" class="mode-section" style="display: none;">
-
-            {{-- Item table --}}
-            <div style="margin-bottom: 1.5rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                    <label class="form-label" style="margin-bottom: 0; font-weight: 600; font-size: 0.95rem;">
-                        <i class="fa-solid fa-list" style="color: var(--color-primary); margin-right: 6px;"></i>
-                        Senarai Barangan
-                    </label>
-                    <span style="font-size: 0.8rem; color: var(--text-dark);">
-                        <kbd style="background: var(--bg-surface-hover); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; font-family: inherit; font-size: 0.78rem;">Enter</kbd>
-                        untuk ke ruangan seterusnya
-                    </span>
-                </div>
-
-                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
-                    <div style="display: grid; grid-template-columns: 1fr 150px 44px; background: var(--bg-surface-hover); border-bottom: 1px solid var(--border-color); padding: 0.6rem 0.75rem; gap: 8px;">
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Item</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Unit / Kuantiti</span>
-                        <span></span>
-                    </div>
-                    <div id="itemRows"></div>
-                    <div style="border-top: 1px solid var(--border-color); padding: 0.5rem 0.75rem;">
-                        <button type="button" onclick="addRow()"
-                            style="background: none; border: none; color: var(--color-primary); font-size: 0.85rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 0; transition: var(--transition-fast);"
-                            onmouseenter="this.style.color='var(--color-primary-hover)'"
-                            onmouseleave="this.style.color='var(--color-primary)'">
-                            <i class="fa-solid fa-plus"></i> Tambah baris
-                        </button>
-                    </div>
-                </div>
-
-                <div id="itemError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: 6px; display: none;">
-                    Sila masukkan sekurang-kurangnya satu item.
-                </div>
+        <section id="section-request" class="mode-section" style="display: none;">
+            <div style="margin-bottom: 1.25rem;">
+                <h2 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Purchase Request Form</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Lengkapkan semua maklumat pembelian sebelum membuat pesanan.</p>
             </div>
 
-            {{-- Stok: Nilai Pembelian + Tarikh Pembelian --}}
+            @if($platforms->isEmpty() || $paymentMethods->isEmpty())
+                <div class="alert alert-danger" style="margin-bottom: 1.25rem;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    Superadmin perlu menetapkan pilihan platform pembelian dan kaedah bayaran terlebih dahulu.
+                </div>
+            @endif
+
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Nilai Pembelian (RM) — Jumlah</label>
-                    <input type="number" step="0.01" id="stok_nilai"
-                        class="form-control"
-                        placeholder="0.00" value="{{ old('nilai_tuntutan') }}">
+                    <label class="form-label" for="requestor_name">Nama Pemohon</label>
+                    <input type="text" id="requestor_name" class="form-control" value="{{ Auth::user()->name }}" readonly>
+                    <small style="color: var(--text-dark); display: block; margin-top: 4px;">Direkodkan daripada akaun anda.</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Tarikh Pembelian</label>
-                    <input type="date" id="stok_tarikh"
-                        class="form-control"
-                        value="{{ old('tarikh_beli', date('Y-m-d')) }}">
+                    <label class="form-label" for="request_date">Tarikh</label>
+                    <input type="date" id="request_date" name="request_date" class="form-control @error('request_date') is-invalid @enderror" value="{{ old('request_date', now()->toDateString()) }}" required>
+                    @error('request_date')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
                 </div>
             </div>
-            <div id="stokBottomError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 0.75rem; display: none;">
-                Sila lengkapkan nilai pembelian dan tarikh.
+
+            <div class="form-group">
+                <label class="form-label" for="item_specification">Spesifikasi Item</label>
+                <textarea id="item_specification" name="item_specification" class="form-control @error('item_specification') is-invalid @enderror" rows="3" maxlength="255" placeholder="Contoh: 10 kotak susu segar 1L" required>{{ old('item_specification') }}</textarea>
+                @error('item_specification')
+                    <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                @enderror
             </div>
-        </div>
 
-        {{-- ══════════════════════════════════════
-             LUNCH SECTION
-        ══════════════════════════════════════ --}}
-        <div id="section-lunch" class="mode-section" style="display: none;">
+            <div class="form-group">
+                <label class="form-label" for="purchase_purpose">Tujuan Pembelian</label>
+                <textarea id="purchase_purpose" name="purchase_purpose" class="form-control @error('purchase_purpose') is-invalid @enderror" rows="3" maxlength="1000" placeholder="Nyatakan kegunaan pembelian ini" required>{{ old('purchase_purpose') }}</textarea>
+                @error('purchase_purpose')
+                    <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                @enderror
+            </div>
 
-            {{-- Week Selector Row --}}
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="invoice_no">No. Invois <span style="font-weight: 400; color: var(--text-dark);">(jika berkenaan)</span></label>
+                    <input type="text" id="invoice_no" name="invoice_no" class="form-control @error('invoice_no') is-invalid @enderror" value="{{ old('invoice_no') }}" maxlength="255" placeholder="Contoh: INV-2026-001">
+                    @error('invoice_no')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="purchase_platform">Platform Pembelian</label>
+                    <select id="purchase_platform" name="purchase_platform" class="form-control @error('purchase_platform') is-invalid @enderror" required>
+                        <option value="">Pilih platform</option>
+                        @foreach($platforms as $platform)
+                            <option value="{{ $platform->name }}" @selected(old('purchase_platform') === $platform->name)>{{ $platform->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('purchase_platform')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="total_item_amount">Jumlah Amaun Item (RM)</label>
+                    <input type="number" id="total_item_amount" name="total_item_amount" class="form-control @error('total_item_amount') is-invalid @enderror" value="{{ old('total_item_amount') }}" min="0.01" step="0.01" placeholder="0.00" required>
+                    @error('total_item_amount')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="payment_method">Saluran / Kaedah Bayaran</label>
+                    <select id="payment_method" name="payment_method" class="form-control @error('payment_method') is-invalid @enderror" required>
+                        <option value="">Pilih kaedah bayaran</option>
+                        @foreach($paymentMethods as $paymentMethod)
+                            <option value="{{ $paymentMethod->name }}" @selected(old('payment_method') === $paymentMethod->name)>{{ $paymentMethod->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('payment_method')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="invoice_sent_to_account">Invois Dihantar ke Akaun?</label>
+                    <select id="invoice_sent_to_account" name="invoice_sent_to_account" class="form-control @error('invoice_sent_to_account') is-invalid @enderror" required>
+                        <option value="" @selected(old('invoice_sent_to_account') === null)>Pilih jawapan</option>
+                        <option value="1" @selected((string) old('invoice_sent_to_account') === '1')>Ya</option>
+                        <option value="0" @selected((string) old('invoice_sent_to_account') === '0')>Tidak</option>
+                    </select>
+                    @error('invoice_sent_to_account')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="date_receive">Tarikh Terima</label>
+                    <input type="date" id="date_receive" name="date_receive" class="form-control @error('date_receive') is-invalid @enderror" value="{{ old('date_receive', now()->toDateString()) }}" required>
+                    @error('date_receive')
+                        <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+        </section>
+
+        <section id="section-lunch" class="mode-section" style="display: none;">
             <div class="form-row" style="margin-bottom: 1.25rem;">
                 <div class="form-group">
-                    <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; display: block;">
+                    <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; display: block;" for="lunch_week">
                         <i class="fa-solid fa-calendar-week" style="color: var(--color-primary); margin-right: 6px;"></i>
                         Pilih Minggu
                     </label>
-                    <input type="week" id="lunch_week" name="week" class="form-control"
-                        value="{{ old('week', \Carbon\Carbon::now()->format('o-\WW')) }}" required>
+                    <input type="week" id="lunch_week" name="week" class="form-control" value="{{ old('week', \Carbon\Carbon::now()->format('o-\\WW')) }}">
                 </div>
             </div>
 
-            {{-- Table with auto-filled dates --}}
             <div style="margin-bottom: 1.5rem;">
                 <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem; display: block;">
                     <i class="fa-solid fa-calendar-day" style="color: var(--color-primary); margin-right: 6px;"></i>
                     Butiran Lunch Mengikut Hari
                 </label>
-
                 <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
-                    {{-- Header --}}
                     <div style="display: grid; grid-template-columns: 140px 1fr 90px 110px; background: var(--bg-surface-hover); border-bottom: 1px solid var(--border-color); padding: 0.6rem 0.75rem; gap: 12px;">
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Tarikh</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Butiran Lunch</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: right;">Pax</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: right;">Harga/Pax</span>
+                        <span class="lunch-table-heading">Tarikh</span>
+                        <span class="lunch-table-heading">Butiran Lunch</span>
+                        <span class="lunch-table-heading" style="text-align: right;">Pax</span>
+                        <span class="lunch-table-heading" style="text-align: right;">Harga/Pax</span>
                     </div>
-
-                    {{-- Rows container --}}
                     <div id="lunchDaysRows"></div>
                 </div>
-                <div id="lunchInputError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: 6px; display: none;">
-                    Sila masukkan Bil. Pax dan Harga/Pax untuk hari yang ingin dituntut.
-                </div>
+                <div id="lunchInputError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: 6px; display: none;"></div>
             </div>
 
-            {{-- Lunch: Jumlah (auto) --}}
             <div class="form-row" style="align-items: flex-end; margin-bottom: 1rem;">
                 <div class="form-group" style="flex: 1;">
-                    <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 600;">
+                    <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 600;" for="lunch_total_display">
                         Jumlah Tuntutan Minggu Ini (RM)
-                        <span style="font-size: 0.75rem; color: var(--text-dark); font-weight: 400;">— dikira secara automatik</span>
+                        <span style="font-size: 0.75rem; color: var(--text-dark); font-weight: 400;">dikira secara automatik</span>
                     </label>
-                    <div style="position: relative;">
-                        <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-dark); font-size: 0.85rem; pointer-events: none; z-index: 1;">RM</span>
-                        <input type="text" id="lunch_total_display" class="form-control"
-                            readonly value="0.00"
-                            style="background: var(--bg-surface-hover); color: var(--color-success); font-weight: 700; font-size: 1.05rem; cursor: default; border-color: rgba(16,185,129,0.3); padding-left: 2.5rem;">
-                    </div>
+                    <input type="text" id="lunch_total_display" class="form-control" readonly value="0.00" style="background: var(--bg-surface-hover); color: var(--color-success); font-weight: 700;">
                 </div>
             </div>
-            <div id="lunchBottomError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 0.75rem; display: none;">
-                Sila isi minggu yang sah.
-            </div>
-        </div>
+            <div id="lunchBottomError" style="color: var(--color-danger); font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 0.75rem; display: none;"></div>
+        </section>
 
-        {{-- ══════════════════════════════════════
-             PROMPT — no tag selected yet
-        ══════════════════════════════════════ --}}
         <div id="section-prompt" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-dark);">
             <i class="fa-solid fa-hand-pointer" style="font-size: 2rem; margin-bottom: 0.75rem; display: block; opacity: 0.4;"></i>
             <span style="font-size: 0.9rem;">Pilih jenis tuntutan di atas untuk mula mengisi borang.</span>
         </div>
 
-        {{-- Attachment field --}}
         <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
             <label for="attachment" class="form-label" style="font-weight: 600; font-size: 0.95rem;">
                 <i class="fa-solid fa-paperclip" style="color: var(--color-primary); margin-right: 6px;"></i>
-                Muat Naik Resit / Dokumen Sokongan (Pilihan)
+                Muat Naik Dokumen Sokongan (Pilihan)
             </label>
             <input type="file" name="attachment" id="attachment" class="form-control @error('attachment') is-invalid @enderror" accept=".jpg,.jpeg,.png,.pdf" style="background: var(--bg-surface-hover); color: var(--text-main); border: 1px dashed var(--border-color); padding: 0.6rem;">
             <small style="color: var(--text-dark); display: block; margin-top: 4px;">Format yang dibenarkan: JPG, PNG, PDF (Maksimum 5MB)</small>
@@ -198,436 +211,141 @@
             @enderror
         </div>
 
-        {{-- Action buttons --}}
         <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
             <a href="{{ route('tuntutan.index') }}" class="btn btn-secondary">Batal</a>
-            <button type="submit" class="btn btn-primary" id="submitBtn">
-                <i class="fa-solid fa-paper-plane"></i> Hantar Tuntutan
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-paper-plane"></i> Hantar Permohonan
             </button>
         </div>
     </form>
 </div>
 
 <style>
-    /* Tag pill toggle */
-    .tag-pill {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0.5rem 1.1rem;
-        border-radius: 999px;
-        border: 1.5px solid var(--border-color);
-        background: var(--bg-surface-hover);
-        color: var(--text-muted);
-        font-size: 0.88rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: border-color var(--transition-fast), background var(--transition-fast),
-                    color var(--transition-fast), box-shadow var(--transition-fast);
-        user-select: none;
-    }
+    .tag-pill { display: flex; align-items: center; gap: 8px; padding: 0.5rem 1.1rem; border-radius: 999px; border: 1.5px solid var(--border-color); background: var(--bg-surface-hover); color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast); user-select: none; }
     .tag-pill input[type="radio"] { display: none; }
-    .tag-pill:has(input:checked) {
-        border-color: var(--color-primary);
-        background: rgba(99, 102, 241, 0.12);
-        color: #a5b4fc;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-    }
-    .tag-pill:hover {
-        border-color: rgba(99, 102, 241, 0.5);
-        color: var(--text-main);
-    }
-
-    /* Stok item rows */
-    .item-row {
-        display: grid;
-        grid-template-columns: 1fr 150px 44px;
-        gap: 8px;
-        padding: 0.4rem 0.75rem;
-        border-bottom: 1px solid var(--border-color);
-        align-items: center;
-        transition: background var(--transition-fast);
-    }
-    .item-row:last-child { border-bottom: none; }
-    .item-row:hover { background: rgba(99, 102, 241, 0.04); }
-    .item-row input,
-    .lunch-input {
-        width: 100%;
-        background: var(--bg-surface-hover);
-        border: 1px solid transparent;
-        border-radius: var(--radius-sm);
-        padding: 0.45rem 0.65rem;
-        font-size: 0.9rem;
-        color: var(--text-main);
-        transition: border-color var(--transition-fast), background var(--transition-fast);
-    }
-    .item-row input:focus,
-    .lunch-input:focus {
-        border-color: var(--color-primary);
-        background: rgba(99, 102, 241, 0.08);
-        outline: none;
-    }
-    .item-row input.is-empty-error { border-color: var(--color-danger) !important; }
-    .remove-row-btn {
-        width: 30px; height: 30px;
-        display: flex; align-items: center; justify-content: center;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        color: var(--text-dark);
-        transition: color var(--transition-fast), background var(--transition-fast);
-        font-size: 0.8rem;
-        background: none; border: none;
-        flex-shrink: 0;
-    }
-    .remove-row-btn:hover { color: var(--color-danger); background: rgba(239,68,68,0.1); }
-    .remove-row-btn:disabled { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
-
-    /* Lunch inputs in the table row */
-    #section-lunch .lunch-input { display: block; }
-    #lunch_jumlah_wrapper { margin-top: 0; }
+    .tag-pill:has(input:checked) { border-color: var(--color-primary); background: rgba(99, 102, 241, 0.12); color: #a5b4fc; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+    .tag-pill:hover { border-color: rgba(99, 102, 241, 0.5); color: var(--text-main); }
+    .lunch-table-heading { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .lunch-input { width: 100%; background: var(--bg-surface-hover); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0.45rem 0.65rem; font-size: 0.9rem; color: var(--text-main); }
+    .lunch-input:focus { border-color: var(--color-primary); background: rgba(99, 102, 241, 0.08); outline: none; }
 </style>
 
 <script>
-    /* ─── Tag switching ─── */
+    const form = document.getElementById('tuntutanForm');
     const radios = document.querySelectorAll('input[name="tag"]');
-    radios.forEach(r => r.addEventListener('change', onTagChange));
+    const requestSection = document.getElementById('section-request');
+    const lunchSection = document.getElementById('section-lunch');
+    const promptSection = document.getElementById('section-prompt');
+
+    function setSectionEnabled(section, enabled) {
+        section.querySelectorAll('input, select, textarea').forEach((input) => {
+            input.disabled = !enabled;
+        });
+    }
 
     function onTagChange() {
-        const val = document.querySelector('input[name="tag"]:checked')?.value;
-        document.getElementById('section-prompt').style.display = val ? 'none' : 'block';
-        document.getElementById('section-stok').style.display  = (val === 'Stok' || val === 'General' || val === 'Food')  ? 'block' : 'none';
-        document.getElementById('section-lunch').style.display = val === 'Lunch' ? 'block' : 'none';
+        const tag = document.querySelector('input[name="tag"]:checked')?.value;
+        const isRequest = tag === 'Pantry' || tag === 'General';
+        const isLunch = tag === 'Lunch';
+
+        requestSection.style.display = isRequest ? 'block' : 'none';
+        lunchSection.style.display = isLunch ? 'block' : 'none';
+        promptSection.style.display = tag ? 'none' : 'block';
+        setSectionEnabled(requestSection, isRequest);
+        setSectionEnabled(lunchSection, isLunch);
     }
 
-    // Restore state on page load (e.g. after validation error)
-    onTagChange();
+    radios.forEach((radio) => radio.addEventListener('change', onTagChange));
 
-    /* ─── STOK: dynamic item rows ─── */
-    let rowCount = 0;
-
-    function addRow(focusItem = true) {
-        rowCount++;
-        const idx = rowCount;
-        const container = document.getElementById('itemRows');
-
-        const row = document.createElement('div');
-        row.className = 'item-row';
-        row.dataset.rowId = idx;
-        row.innerHTML = `
-            <input type="text" class="item-name-input" placeholder="Nama barang…"
-                data-row="${idx}" autocomplete="off">
-            <input type="text" class="item-unit-input" placeholder="cth: 2 tin, 1 kg"
-                data-row="${idx}" autocomplete="off">
-            <button type="button" class="remove-row-btn" onclick="removeRow(${idx})" title="Padam baris">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        `;
-        container.appendChild(row);
-        updateRemoveButtons();
-
-        if (focusItem) row.querySelector('.item-name-input').focus();
-
-        row.querySelector('.item-name-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); row.querySelector('.item-unit-input').focus(); }
-        });
-        row.querySelector('.item-unit-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); addRow(true); }
-        });
-    }
-
-    function removeRow(idx) {
-        const row = document.querySelector(`#itemRows [data-row-id="${idx}"]`);
-        if (row) row.remove();
-        updateRemoveButtons();
-    }
-
-    function updateRemoveButtons() {
-        const rows = document.querySelectorAll('.item-row');
-        rows.forEach(row => {
-            row.querySelector('.remove-row-btn').disabled = rows.length <= 1;
-        });
-    }
-
-    function serializeStokItems() {
-        const rows = document.querySelectorAll('.item-row');
-        const parts = [];
-        let hasError = false;
-        rows.forEach(row => {
-            const nameInput = row.querySelector('.item-name-input');
-            const unitInput = row.querySelector('.item-unit-input');
-            const name = nameInput.value.trim();
-            const unit = unitInput.value.trim();
-            nameInput.classList.remove('is-empty-error');
-            if (name === '' && unit === '') return;
-            if (name === '') { nameInput.classList.add('is-empty-error'); hasError = true; return; }
-            parts.push(unit ? `${name} (${unit})` : name);
-        });
-        return { hasError, value: parts.join(', ') };
-    }
-
-    // Initialise first row
-    addRow(false);
-
-    /* ─── LUNCH: weekly claim logic ─── */
     const oldLunchData = {
         dates: @json(old('lunch_dates', [])),
         butirans: @json(old('lunch_butirans', [])),
         pax: @json(old('lunch_pax', [])),
-        hargas: @json(old('lunch_hargas', []))
+        hargas: @json(old('lunch_hargas', [])),
     };
+    const weekInput = document.getElementById('lunch_week');
+    const totalDisplay = document.getElementById('lunch_total_display');
 
-    const weekInput  = document.getElementById('lunch_week');
-    const totalDisp  = document.getElementById('lunch_total_display');
+    function getDatesFromISOWeek(week) {
+        const [yearPart, weekPart] = week.split('-W');
+        const year = Number.parseInt(yearPart, 10);
+        const weekNumber = Number.parseInt(weekPart, 10);
+        if (!year || !weekNumber) return [];
 
-    function getDatesFromISOWeek(weekStr) {
-        const parts = weekStr.split('-W');
-        if (parts.length !== 2) return [];
-        const year = parseInt(parts[0], 10);
-        const week = parseInt(parts[1], 10);
-        
-        // Start with Jan 4 (always in ISO week 1)
-        const d = new Date(year, 0, 4);
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mondayOfWeek1 = new Date(d.setDate(diff));
-        
-        const mondayOfTargetWeek = new Date(mondayOfWeek1.setDate(mondayOfWeek1.getDate() + (week - 1) * 7));
-        
-        const dates = [];
-        for (let i = 0; i < 7; i++) {
-            const temp = new Date(mondayOfTargetWeek);
-            temp.setDate(mondayOfTargetWeek.getDate() + i);
-            const yyyy = temp.getFullYear();
-            const mm = String(temp.getMonth() + 1).padStart(2, '0');
-            const dd = String(temp.getDate()).padStart(2, '0');
-            dates.push(`${yyyy}-${mm}-${dd}`);
-        }
-        return dates;
-    }
+        const fourthJanuary = new Date(year, 0, 4);
+        const weekday = fourthJanuary.getDay() || 7;
+        const monday = new Date(fourthJanuary);
+        monday.setDate(fourthJanuary.getDate() - weekday + 1 + ((weekNumber - 1) * 7));
 
-    function formatDateDisplay(dateStr) {
-        const parts = dateStr.split('-');
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    function escapeHtml(str) {
-        return str
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function calcLunchTotal() {
-        let total = 0;
-        
-        document.querySelectorAll('.lunch-pax-input').forEach((paxInput) => {
-            const pax = parseInt(paxInput.value, 10) || 0;
-            const row = paxInput.closest('div').parentElement;
-            const hargaInput = row.querySelector('.lunch-harga-input');
-            const harga = parseFloat(hargaInput.value) || 0;
-            total += pax * harga;
+        return Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + index);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         });
-        
-        totalDisp.value = total > 0 ? total.toFixed(2) : '0.00';
+    }
+
+    function escapeHtml(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function calculateLunchTotal() {
+        let total = 0;
+        document.querySelectorAll('.lunch-pax-input').forEach((paxInput) => {
+            const row = paxInput.closest('[data-lunch-row]');
+            const pax = Number.parseInt(paxInput.value, 10) || 0;
+            const price = Number.parseFloat(row.querySelector('.lunch-price-input').value) || 0;
+            total += pax * price;
+        });
+        totalDisplay.value = total.toFixed(2);
     }
 
     function renderLunchRows() {
-        const weekVal = weekInput.value;
         const container = document.getElementById('lunchDaysRows');
+        const dates = getDatesFromISOWeek(weekInput.value);
+        const dayNames = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu', 'Ahad'];
         container.innerHTML = '';
-        
-        if (!weekVal) {
+
+        if (!dates.length) {
             container.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted);">Sila pilih minggu di atas.</div>';
             return;
         }
-        
-        const dates = getDatesFromISOWeek(weekVal);
-        const dayNames = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu', 'Ahad'];
-        
-        dates.forEach((dateStr, index) => {
-            let paxVal = '';
-            let butiranVal = 'Lunch Claim';
-            let hargaVal = '5.00'; // Default daily price
-            
-            // Check if we have old validation data for this index
-            if (oldLunchData.dates && oldLunchData.dates[index] === dateStr) {
-                paxVal = oldLunchData.pax[index] !== null ? oldLunchData.pax[index] : '';
-                butiranVal = oldLunchData.butirans[index] || 'Lunch Claim';
-                hargaVal = oldLunchData.hargas[index] !== null ? oldLunchData.hargas[index] : '5.00';
-            }
-            
+
+        dates.forEach((date, index) => {
+            const useOldData = oldLunchData.dates[index] === date;
+            const butiran = useOldData ? (oldLunchData.butirans[index] || 'Lunch Claim') : 'Lunch Claim';
+            const pax = useOldData && oldLunchData.pax[index] !== null ? oldLunchData.pax[index] : '';
+            const price = useOldData && oldLunchData.hargas[index] !== null ? oldLunchData.hargas[index] : '5.00';
             const row = document.createElement('div');
-            row.style.display = 'grid';
-            row.style.gridTemplateColumns = '140px 1fr 90px 110px';
-            row.style.gap = '12px';
-            row.style.padding = '0.4rem 0.75rem';
-            row.style.alignItems = 'center';
-            row.style.borderBottom = index < 6 ? '1px solid var(--border-color)' : 'none';
-            
+            row.dataset.lunchRow = 'true';
+            row.style.cssText = `display:grid;grid-template-columns:140px 1fr 90px 110px;gap:12px;padding:.4rem .75rem;align-items:center;${index < 6 ? 'border-bottom:1px solid var(--border-color);' : ''}`;
             row.innerHTML = `
-                <div>
-                    <span style="font-size: 0.85rem; font-weight: 500; display: block; color: var(--text-main);">${dayNames[index]}</span>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">${formatDateDisplay(dateStr)}</span>
-                    <input type="hidden" name="lunch_dates[]" value="${dateStr}">
-                </div>
-                <div>
-                    <input type="text" name="lunch_butirans[]" class="lunch-input" 
-                        value="${escapeHtml(butiranVal)}" placeholder="Butiran lunch..." autocomplete="off">
-                </div>
-                <div>
-                    <input type="number" name="lunch_pax[]" class="lunch-input lunch-pax-input" 
-                        value="${paxVal}" min="0" placeholder="0" autocomplete="off" style="text-align: right;">
-                </div>
-                <div>
-                    <input type="number" name="lunch_hargas[]" class="lunch-input lunch-harga-input" 
-                        value="${hargaVal}" step="0.01" min="0" placeholder="0.00" autocomplete="off" style="text-align: right;">
-                </div>
+                <div><strong style="font-size:.85rem;display:block;">${dayNames[index]}</strong><span style="font-size:.75rem;color:var(--text-muted);">${date.split('-').reverse().join('/')}</span><input type="hidden" name="lunch_dates[]" value="${date}"></div>
+                <div><input type="text" name="lunch_butirans[]" class="lunch-input" value="${escapeHtml(butiran)}" placeholder="Butiran lunch..."></div>
+                <div><input type="number" name="lunch_pax[]" class="lunch-input lunch-pax-input" value="${pax}" min="0" placeholder="0" style="text-align:right;"></div>
+                <div><input type="number" name="lunch_hargas[]" class="lunch-input lunch-price-input" value="${price}" min="0" step="0.01" placeholder="0.00" style="text-align:right;"></div>
             `;
             container.appendChild(row);
         });
-        
-        document.querySelectorAll('.lunch-pax-input').forEach(input => {
-            input.addEventListener('input', calcLunchTotal);
-        });
-        document.querySelectorAll('.lunch-harga-input').forEach(input => {
-            input.addEventListener('input', calcLunchTotal);
-        });
-        
-        calcLunchTotal();
+
+        setSectionEnabled(lunchSection, document.querySelector('input[name="tag"]:checked')?.value === 'Lunch');
+        container.querySelectorAll('.lunch-pax-input, .lunch-price-input').forEach((input) => input.addEventListener('input', calculateLunchTotal));
+        calculateLunchTotal();
     }
 
     weekInput.addEventListener('change', renderLunchRows);
-
-    // Initial render
     renderLunchRows();
+    onTagChange();
 
-    /* ─── Form submit ─── */
-    document.getElementById('tuntutanForm').addEventListener('submit', function(e) {
+    form.addEventListener('submit', (event) => {
         const tag = document.querySelector('input[name="tag"]:checked')?.value;
+        if (tag !== 'Lunch') return;
 
-        if (!tag) { e.preventDefault(); return; }
-
-        if (tag === 'Stok' || tag === 'General' || tag === 'Food') {
-            const { hasError, value } = serializeStokItems();
-            const stokNilai  = document.getElementById('stok_nilai').value.trim();
-            const stokTarikh = document.getElementById('stok_tarikh').value.trim();
-            const itemErr    = document.getElementById('itemError');
-            const botErr     = document.getElementById('stokBottomError');
-
-            let stop = false;
-            if (hasError || value === '') { e.preventDefault(); itemErr.style.display = 'block'; stop = true; }
-            else itemErr.style.display = 'none';
-
-            if (!stokNilai || !stokTarikh) { e.preventDefault(); botErr.style.display = 'block'; stop = true; }
-            else botErr.style.display = 'none';
-
-            if (stop) return;
-
-            document.getElementById('nama_item_hidden').value      = value;
-            document.getElementById('nilai_tuntutan_hidden').value = stokNilai;
-            // inject tarikh into a named input for submission
-            let t = document.getElementById('_stok_tarikh_submit');
-            if (!t) { t = document.createElement('input'); t.type='hidden'; t.name='tarikh_beli'; t.id='_stok_tarikh_submit'; this.appendChild(t); }
-            t.value = stokTarikh;
-        }
-
-        if (tag === 'Lunch') {
-            const week = weekInput.value;
-            const paxInputs = document.querySelectorAll('.lunch-pax-input');
-            const inpErr = document.getElementById('lunchInputError');
-            const botErr = document.getElementById('lunchBottomError');
-            
-            let totalPax = 0;
-            let missingButiran = false;
-            let missingHarga = false;
-            let totalClaimsAmount = 0;
-            
-            paxInputs.forEach((input) => {
-                const p = parseInt(input.value, 10) || 0;
-                totalPax += p;
-                
-                const row = input.closest('div').parentElement;
-                const butiranInput = row.querySelector('input[name="lunch_butirans[]"]');
-                const hargaInput = row.querySelector('input[name="lunch_hargas[]"]');
-                const price = parseFloat(hargaInput.value) || 0;
-                
-                butiranInput.style.borderColor = '';
-                hargaInput.style.borderColor = '';
-                
-                if (p > 0) {
-                    const butiran = butiranInput.value.trim();
-                    totalClaimsAmount += p * price;
-                    
-                    if (!butiran) {
-                        missingButiran = true;
-                        butiranInput.style.borderColor = 'var(--color-danger)';
-                    }
-                    if (price <= 0) {
-                        missingHarga = true;
-                        hargaInput.style.borderColor = 'var(--color-danger)';
-                    }
-                }
-            });
-            
-            let stop = false;
-            if (totalPax <= 0) {
-                e.preventDefault();
-                inpErr.innerText = 'Sila masukkan sekurang-kurangnya satu Bil. Pax untuk hari yang ingin dituntut.';
-                inpErr.style.display = 'block';
-                stop = true;
-            } else {
-                inpErr.style.display = 'none';
-            }
-            
-            if (!week) {
-                e.preventDefault();
-                botErr.innerText = 'Sila pilih minggu.';
-                botErr.style.display = 'block';
-                stop = true;
-            } else {
-                botErr.style.display = 'none';
-            }
-            
-            if (missingButiran) {
-                e.preventDefault();
-                inpErr.innerText = 'Sila isi butiran lunch untuk hari yang mempunyai pax.';
-                inpErr.style.display = 'block';
-                stop = true;
-            }
-            
-            if (missingHarga) {
-                e.preventDefault();
-                inpErr.innerText = 'Sila isi harga per pax yang sah untuk hari yang mempunyai pax.';
-                inpErr.style.display = 'block';
-                stop = true;
-            }
-            
-            if (stop) return;
-            
-            // Set values to satisfy dummy checks
-            document.getElementById('nama_item_hidden').value = `Lunch Claim - Minggu ${week}`;
-            document.getElementById('nilai_tuntutan_hidden').value = totalClaimsAmount.toFixed(2);
-            
-            let firstDate = '';
-            document.querySelectorAll('.lunch-pax-input').forEach((input) => {
-                const p = parseInt(input.value, 10) || 0;
-                if (p > 0 && !firstDate) {
-                    const row = input.closest('div').parentElement;
-                    firstDate = row.querySelector('input[name="lunch_dates[]"]').value;
-                }
-            });
-            
-            let t = document.getElementById('_lunch_tarikh_submit');
-            if (!t) {
-                t = document.createElement('input');
-                t.type = 'hidden';
-                t.name = 'tarikh_beli';
-                t.id = '_lunch_tarikh_submit';
-                this.appendChild(t);
-            }
-            t.value = firstDate || new Date().toISOString().split('T')[0];
+        const rows = document.querySelectorAll('[data-lunch-row]');
+        const hasClaim = Array.from(rows).some((row) => (Number.parseInt(row.querySelector('.lunch-pax-input').value, 10) || 0) > 0);
+        if (!weekInput.value || !hasClaim) {
+            event.preventDefault();
+            document.getElementById('lunchBottomError').textContent = !weekInput.value ? 'Sila pilih minggu.' : 'Sila tuntut sekurang-kurangnya untuk satu hari.';
+            document.getElementById('lunchBottomError').style.display = 'block';
         }
     });
 </script>

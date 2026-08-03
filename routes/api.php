@@ -30,10 +30,14 @@ Route::middleware([AuthenticateApi::class])->group(function () {
     Route::put('/inventori/{inventori}/adjust', [ApiController::class, 'inventoriAdjust']);
     Route::delete('/inventori/{inventori}', [ApiController::class, 'inventoriDestroy']);
 
-    // Tuntutan (Reimbursement)
+    // Permohonan pembelian
     Route::get('/tuntutan', [ApiController::class, 'tuntutanList']);
     Route::post('/tuntutan', [ApiController::class, 'tuntutanStore']);
     Route::patch('/tuntutan/{tuntutan}/status', [ApiController::class, 'tuntutanUpdateStatus']);
+    Route::get('/tuntutan-preset', [ApiController::class, 'tuntutanPresetList']);
+    Route::post('/tuntutan-preset', [ApiController::class, 'tuntutanPresetStore']);
+    Route::put('/tuntutan-preset/{tuntutanPreset}', [ApiController::class, 'tuntutanPresetUpdate']);
+    Route::delete('/tuntutan-preset/{tuntutanPreset}', [ApiController::class, 'tuntutanPresetDestroy']);
 
     // Khas untuk Superadmin sahaja
     Route::get('/pengguna', [ApiController::class, 'penggunaList']);
