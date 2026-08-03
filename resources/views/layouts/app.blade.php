@@ -8,7 +8,7 @@
     <title>@yield('title', 'Utama') | FFGroceryTrack</title>
     
     <!-- Meta PWA -->
-    <meta name="theme-color" content="#1e293b">
+    <meta name="theme-color" content="#f4f7fb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FFGrocery">
@@ -17,8 +17,23 @@
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <link rel="manifest" href="/manifest.json">
     
+    <script>
+        (() => {
+            try {
+                const savedTheme = localStorage.getItem('ffgrocery-theme');
+                const theme = savedTheme === 'dark' ? 'dark' : 'light';
+
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
+            } catch (error) {
+                document.documentElement.dataset.theme = 'light';
+                document.documentElement.style.colorScheme = 'light';
+            }
+        })();
+    </script>
+
     <!-- CSS Utama -->
-    <link rel="stylesheet" href="/css/app.css?v=2.4">
+    <link rel="stylesheet" href="/css/app.css?v=2.5">
     
     <!-- FontAwesome (untuk ikon sampingan) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -31,9 +46,9 @@
 <body>
 
     <!-- Loading Overlay -->
-    <div id="loadingOverlay" style="position: fixed; inset: 0; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; opacity: 1; transition: opacity 0.3s ease;">
-        <div style="width: 48px; height: 48px; border: 4.5px solid rgba(99, 102, 241, 0.1); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-        <div style="font-weight: 500; letter-spacing: 0.5px; color: #94a3b8; font-size: 0.95rem;">Memuatkan...</div>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-copy">Memuatkan...</div>
     </div>
 
     <!-- Header Telefon Bimbit -->
@@ -45,9 +60,9 @@
             <div class="logo-icon">F</div>
             <div class="logo-text" style="font-size: 1.25rem;">FFGrocery</div>
         </div>
-        <span class="btn btn-secondary btn-sm" aria-hidden="true" tabindex="-1" style="padding: 8px 12px; visibility: hidden;">
-            <i class="fa-solid fa-bars"></i>
-        </span>
+        <button type="button" class="btn btn-secondary btn-sm theme-toggle theme-toggle-mobile" data-theme-toggle aria-label="Tukar ke mod cerah" title="Tukar ke mod cerah" style="padding: 8px 12px;">
+            <i class="fa-solid fa-sun" data-theme-icon></i>
+        </button>
     </div>
 
     <div class="app-container">
@@ -114,6 +129,11 @@
                         </div>
                     </div>
                 </div>
+
+                <button type="button" class="btn btn-secondary btn-sm theme-toggle" data-theme-toggle aria-pressed="false">
+                    <i class="fa-solid fa-sun" data-theme-icon></i>
+                    <span data-theme-label>Mod cerah</span>
+                </button>
                 
                 <form action="{{ route('logout') }}" method="POST" style="margin-top: 8px;">
                     @csrf
@@ -185,6 +205,54 @@
                     overlay.style.display = 'flex';
                     overlay.style.opacity = '1';
                 }
+            });
+        });
+
+        const themeToggles = document.querySelectorAll('[data-theme-toggle]');
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+        const applyTheme = (theme, shouldPersist = true) => {
+            const isLight = theme === 'light';
+            const nextThemeLabel = isLight ? 'Mod gelap' : 'Mod cerah';
+
+            document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+            document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+
+            if (themeColorMeta) {
+                themeColorMeta.content = isLight ? '#f4f7fb' : '#1e293b';
+            }
+
+            themeToggles.forEach(toggle => {
+                toggle.setAttribute('aria-label', `Tukar ke ${nextThemeLabel.toLowerCase()}`);
+                toggle.setAttribute('aria-pressed', String(isLight));
+                toggle.title = `Tukar ke ${nextThemeLabel.toLowerCase()}`;
+
+                const icon = toggle.querySelector('[data-theme-icon]');
+                if (icon) {
+                    icon.classList.toggle('fa-sun', !isLight);
+                    icon.classList.toggle('fa-moon', isLight);
+                }
+
+                const label = toggle.querySelector('[data-theme-label]');
+                if (label) {
+                    label.textContent = nextThemeLabel;
+                }
+            });
+
+            if (shouldPersist) {
+                try {
+                    localStorage.setItem('ffgrocery-theme', isLight ? 'light' : 'dark');
+                } catch (error) {
+                    // Theme still works for this visit if browser storage is unavailable.
+                }
+            }
+        };
+
+        applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light', false);
+
+        themeToggles.forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
             });
         });
         

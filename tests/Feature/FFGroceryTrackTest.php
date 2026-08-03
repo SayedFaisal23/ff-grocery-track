@@ -40,6 +40,19 @@ class FFGroceryTrackTest extends TestCase
         $response->assertSee('Log Masuk');
     }
 
+    public function test_authenticated_layout_includes_persistent_theme_toggle(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+
+        $response = $this->actingAs($stocker)->get('/inventori');
+
+        $response->assertOk();
+        $response->assertSee('data-theme-toggle', false);
+        $response->assertSee('ffgrocery-theme', false);
+        $response->assertSee("savedTheme === 'dark' ? 'dark' : 'light'", false);
+    }
+
     public function test_category_color_defaults_to_current_indigo(): void
     {
         $this->assertSame(Kategori::DEFAULT_WARNA, $this->kategori->warna);
