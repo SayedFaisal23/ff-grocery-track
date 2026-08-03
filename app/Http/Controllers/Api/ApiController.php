@@ -375,15 +375,10 @@ class ApiController extends Controller
                 ],
                 'invoice_sent_to_account' => ['required', 'boolean'],
                 'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
-                'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+                'attachment' => ['prohibited'],
             ]);
 
             $date = Carbon::parse($validated['request_date']);
-
-            $attachmentPath = null;
-            if ($request->hasFile('attachment')) {
-                $attachmentPath = $request->file('attachment')->store('attachments', 'public');
-            }
 
             $claim = Tuntutan::create([
                 'user_id' => Auth::id(),
@@ -403,7 +398,6 @@ class ApiController extends Controller
                 'tarikh_beli' => $validated['request_date'],
                 'minggu_tuntutan' => $this->weekFor($date),
                 'status' => 'Pending',
-                'attachment' => $attachmentPath,
             ]);
 
             LogAktiviti::create([
@@ -433,13 +427,19 @@ class ApiController extends Controller
 
         $result = DB::transaction(function () use ($tuntutan, $validated) {
             $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
-            if ($claim->status !== 'Pending') {
+            if ($claim->status !== 'Pending' || $claim->approval_result !== null) {
                 return null;
             }
 
             $oldData = $claim->toArray();
+            $isApprovedPurchaseRequest = $validated['approval_result'] === 'Approved'
+                && $this->isPurchaseRequest($claim);
+            $isHistoricalRequestWithAttachment = $isApprovedPurchaseRequest && $claim->attachment !== null;
+
             $claim->update([
-                'status' => 'Completed',
+                'status' => $isApprovedPurchaseRequest && ! $isHistoricalRequestWithAttachment
+                    ? 'Pending'
+                    : 'Completed',
                 'approval_result' => $validated['approval_result'],
                 'reviewed_by' => Auth::id(),
                 'reviewed_at' => now(),
@@ -449,7 +449,7 @@ class ApiController extends Controller
         });
 
         if ($result === null) {
-            return response()->json(['message' => 'Permohonan ini telah selesai dan tidak boleh dikemaskini lagi.'], 409);
+            return response()->json(['message' => 'Permohonan ini telah disemak dan tidak boleh dikemaskini lagi.'], 409);
         }
 
         [$oldData, $claim] = $result;
@@ -457,6 +457,55 @@ class ApiController extends Controller
         LogAktiviti::create([
             'user_id' => Auth::id(),
             'aktiviti' => "Merekod keputusan {$claim->approval_result} bagi permohonan ID {$claim->id} ({$claim->nama_item}) melalui API.",
+            'data_lama' => $oldData,
+            'data_baru' => $claim->toArray(),
+        ]);
+
+        return response()->json($claim);
+    }
+
+    /**
+     * Muat naik lampiran selepas permohonan Pantry/General diluluskan.
+     */
+    public function tuntutanUploadAttachment(Request $request, Tuntutan $tuntutan)
+    {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Stocker') || $tuntutan->user_id !== $user->id) {
+            return response()->json(['message' => 'Hanya pemohon dibenarkan memuat naik lampiran.'], 403);
+        }
+
+        $request->validate([
+            'attachment' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+        ]);
+
+        $result = DB::transaction(function () use ($request, $tuntutan) {
+            $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
+
+            if (! $this->canUploadAttachment($claim)) {
+                return null;
+            }
+
+            $oldData = $claim->toArray();
+            $claim->update([
+                'attachment' => $request->file('attachment')->store('attachments', 'public'),
+                'status' => 'Completed',
+            ]);
+
+            return [$oldData, $claim];
+        });
+
+        if ($result === null) {
+            return response()->json([
+                'message' => 'Lampiran hanya boleh dimuat naik sekali selepas permohonan diluluskan.',
+            ], 409);
+        }
+
+        [$oldData, $claim] = $result;
+
+        LogAktiviti::create([
+            'user_id' => $user->id,
+            'aktiviti' => "{$user->name} telah memuat naik lampiran dan melengkapkan permohonan ID {$claim->id} ({$claim->nama_item}) melalui API.",
             'data_lama' => $oldData,
             'data_baru' => $claim->toArray(),
         ]);
@@ -668,6 +717,19 @@ class ApiController extends Controller
     private function weekFor(Carbon $date): string
     {
         return $date->format('o').'-W'.sprintf('%02d', $date->weekOfYear);
+    }
+
+    private function isPurchaseRequest(Tuntutan $claim): bool
+    {
+        return in_array($claim->tag, ['Pantry', 'General'], true);
+    }
+
+    private function canUploadAttachment(Tuntutan $claim): bool
+    {
+        return $this->isPurchaseRequest($claim)
+            && $claim->status === 'Pending'
+            && $claim->approval_result === 'Approved'
+            && $claim->attachment === null;
     }
 
     /**

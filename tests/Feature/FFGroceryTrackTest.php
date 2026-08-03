@@ -285,10 +285,8 @@ class FFGroceryTrackTest extends TestCase
         $response4->assertSessionHasErrors(['lunch_hargas']);
     }
 
-    public function test_stocker_can_submit_pantries_and_general_purchase_requests_with_attachment(): void
+    public function test_stocker_can_submit_pantries_and_general_purchase_requests_without_attachment(): void
     {
-        Storage::fake('public');
-
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
         TuntutanPreset::create([
@@ -302,8 +300,6 @@ class FFGroceryTrackTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        $file = UploadedFile::fake()->create('quotation.pdf', 100);
-
         $responsePantry = $this->actingAs($stocker)->post('/tuntutan', [
             'tag' => 'Pantry',
             'request_date' => '2026-07-20',
@@ -315,7 +311,6 @@ class FFGroceryTrackTest extends TestCase
             'payment_method' => 'Bank Transfer',
             'invoice_sent_to_account' => 1,
             'date_receive' => '2026-07-23',
-            'attachment' => $file,
         ]);
 
         $responsePantry->assertRedirect('/tuntutan');
@@ -331,8 +326,7 @@ class FFGroceryTrackTest extends TestCase
         ]);
 
         $pantryRequest = Tuntutan::where('tag', 'Pantry')->firstOrFail();
-        $this->assertNotNull($pantryRequest->attachment);
-        Storage::disk('public')->assertExists($pantryRequest->attachment);
+        $this->assertNull($pantryRequest->attachment);
 
         $responseGeneral = $this->actingAs($stocker)->post('/tuntutan', [
             'tag' => 'General',
@@ -400,19 +394,25 @@ class FFGroceryTrackTest extends TestCase
                 'payment_method' => 'Kaedah tidak wujud',
                 'invoice_sent_to_account' => 1,
                 'date_receive' => '2026-07-19',
+                'attachment' => UploadedFile::fake()->create('too-early.pdf', 100),
             ])
             ->assertSessionHasErrors([
                 'purchase_platform',
                 'total_item_amount',
                 'payment_method',
                 'date_receive',
+                'attachment',
             ]);
     }
 
-    public function test_superadmin_can_complete_a_pending_request_once(): void
+    public function test_approved_purchase_request_requires_owner_attachment_before_completion(): void
     {
+        Storage::fake('public');
+
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
+        $otherStocker = User::factory()->create();
+        $otherStocker->assignRole('Stocker');
         $superadmin = User::factory()->create();
         $superadmin->assignRole('Superadmin');
 
@@ -434,23 +434,113 @@ class FFGroceryTrackTest extends TestCase
             ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Approved'])
             ->assertForbidden();
 
+        $this->actingAs($stocker)
+            ->post("/tuntutan/{$request->id}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('receipt.pdf', 100),
+            ])
+            ->assertSessionHas('error');
+
         $this->actingAs($superadmin)
             ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Approved'])
             ->assertRedirect();
 
         $this->assertDatabaseHas('tuntutan', [
             'id' => $request->id,
-            'status' => 'Completed',
+            'status' => 'Pending',
             'approval_result' => 'Approved',
             'reviewed_by' => $superadmin->id,
         ]);
 
-        $this->actingAs($superadmin)
-            ->patch("/tuntutan/{$request->id}/status", ['approval_result' => 'Rejected'])
+        $this->actingAs($otherStocker)
+            ->post("/tuntutan/{$request->id}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('receipt.pdf', 100),
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($stocker)
+            ->post("/tuntutan/{$request->id}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('receipt.pdf', 100),
+            ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('tuntutan', [
             'id' => $request->id,
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+        ]);
+
+        $request->refresh();
+        $this->assertNotNull($request->attachment);
+        Storage::disk('public')->assertExists($request->attachment);
+
+        $this->actingAs($stocker)
+            ->post("/tuntutan/{$request->id}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('replacement.pdf', 100),
+            ])
+            ->assertSessionHas('error');
+
+        $rejectedRequest = Tuntutan::create([
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'nama_item' => 'Barang Ditolak',
+            'item_specification' => 'Barang Ditolak',
+            'tag' => 'General',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-07-20',
+            'request_date' => '2026-07-20',
+            'minggu_tuntutan' => '2026-W30',
+            'status' => 'Pending',
+        ]);
+
+        $this->actingAs($superadmin)
+            ->patch("/tuntutan/{$rejectedRequest->id}/status", ['approval_result' => 'Rejected'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tuntutan', [
+            'id' => $rejectedRequest->id,
+            'status' => 'Completed',
+            'approval_result' => 'Rejected',
+        ]);
+
+        $this->actingAs($stocker)
+            ->post("/tuntutan/{$rejectedRequest->id}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('rejected.pdf', 100),
+            ])
+            ->assertSessionHas('error');
+    }
+
+    public function test_lunch_keeps_its_initial_attachment_and_completion_flow(): void
+    {
+        Storage::fake('public');
+
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $this->actingAs($stocker)
+            ->post('/tuntutan', [
+                'tag' => 'Lunch',
+                'week' => '2026-W29',
+                'lunch_dates' => ['2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19'],
+                'lunch_butirans' => ['Lunch Isnin', 'Lunch', 'Lunch', 'Lunch', 'Lunch', 'Lunch', 'Lunch'],
+                'lunch_pax' => [5, 0, 0, 0, 0, 0, 0],
+                'lunch_hargas' => [10, 0, 0, 0, 0, 0, 0],
+                'attachment' => UploadedFile::fake()->create('lunch.pdf', 100),
+            ])
+            ->assertRedirect('/tuntutan');
+
+        $lunch = Tuntutan::where('tag', 'Lunch')->firstOrFail();
+        $this->assertNotNull($lunch->attachment);
+
+        $this->actingAs($superadmin)
+            ->patch("/tuntutan/{$lunch->id}/status", ['approval_result' => 'Approved'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tuntutan', [
+            'id' => $lunch->id,
+            'status' => 'Completed',
             'approval_result' => 'Approved',
         ]);
     }
@@ -497,6 +587,8 @@ class FFGroceryTrackTest extends TestCase
 
     public function test_api_uses_purchase_request_fields_and_completion_workflow(): void
     {
+        Storage::fake('public');
+
         $stocker = User::factory()->create(['api_token' => 'stocker-purchase-token']);
         $stocker->assignRole('Stocker');
         $superadmin = User::factory()->create(['api_token' => 'superadmin-purchase-token']);
@@ -532,13 +624,21 @@ class FFGroceryTrackTest extends TestCase
         $claimId = $createResponse->json('id');
 
         $this->withToken('superadmin-purchase-token')
-            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Rejected'])
+            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Approved'])
+            ->assertOk()
+            ->assertJsonPath('status', 'Pending')
+            ->assertJsonPath('approval_result', 'Approved');
+
+        $this->withToken('stocker-purchase-token')
+            ->post("/api/tuntutan/{$claimId}/lampiran", [
+                'attachment' => UploadedFile::fake()->create('receipt.pdf', 100),
+            ])
             ->assertOk()
             ->assertJsonPath('status', 'Completed')
-            ->assertJsonPath('approval_result', 'Rejected');
+            ->assertJsonPath('approval_result', 'Approved');
 
         $this->withToken('superadmin-purchase-token')
-            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Approved'])
+            ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Rejected'])
             ->assertStatus(409);
     }
 

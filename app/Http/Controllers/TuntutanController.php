@@ -80,6 +80,54 @@ class TuntutanController extends Controller
     }
 
     /**
+     * Simpan lampiran selepas permohonan Pantry/General diluluskan.
+     */
+    public function uploadAttachment(Request $request, Tuntutan $tuntutan)
+    {
+        $user = Auth::user();
+
+        if ($tuntutan->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $request->validate([
+            'attachment' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+        ]);
+
+        $result = DB::transaction(function () use ($request, $tuntutan) {
+            $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
+
+            if (! $this->canUploadAttachment($claim)) {
+                return null;
+            }
+
+            $oldData = $claim->toArray();
+            $claim->update([
+                'attachment' => $request->file('attachment')->store('attachments', 'public'),
+                'status' => 'Completed',
+            ]);
+
+            return [$oldData, $claim];
+        });
+
+        if ($result === null) {
+            return back()->with('error', 'Lampiran hanya boleh dimuat naik sekali selepas permohonan diluluskan.');
+        }
+
+        [$oldData, $claim] = $result;
+
+        LogAktiviti::create([
+            'user_id' => $user->id,
+            'aktiviti' => "{$user->name} telah memuat naik lampiran dan melengkapkan permohonan ID {$claim->id} ({$claim->nama_item}).",
+            'item_id' => null,
+            'data_lama' => $oldData,
+            'data_baru' => $claim->toArray(),
+        ]);
+
+        return back()->with('success', 'Lampiran berjaya dimuat naik. Permohonan telah lengkap.');
+    }
+
+    /**
      * Simpan permohonan pembelian atau tuntutan Lunch mingguan.
      */
     public function store(Request $request)
@@ -105,7 +153,7 @@ class TuntutanController extends Controller
     }
 
     /**
-     * Lengkapkan permohonan Pending dengan keputusan Superadmin.
+     * Rekodkan keputusan Superadmin untuk permohonan yang belum disemak.
      */
     public function updateStatus(Request $request, Tuntutan $tuntutan)
     {
@@ -122,13 +170,19 @@ class TuntutanController extends Controller
         $result = DB::transaction(function () use ($tuntutan, $user, $validated) {
             $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
 
-            if ($claim->status !== 'Pending') {
+            if ($claim->status !== 'Pending' || $claim->approval_result !== null) {
                 return null;
             }
 
             $oldData = $claim->toArray();
+            $isApprovedPurchaseRequest = $validated['approval_result'] === 'Approved'
+                && $this->isPurchaseRequest($claim);
+            $isHistoricalRequestWithAttachment = $isApprovedPurchaseRequest && $claim->attachment !== null;
+
             $claim->update([
-                'status' => 'Completed',
+                'status' => $isApprovedPurchaseRequest && ! $isHistoricalRequestWithAttachment
+                    ? 'Pending'
+                    : 'Completed',
                 'approval_result' => $validated['approval_result'],
                 'reviewed_by' => $user->id,
                 'reviewed_at' => now(),
@@ -138,7 +192,7 @@ class TuntutanController extends Controller
         });
 
         if ($result === null) {
-            return back()->with('error', 'Permohonan ini telah selesai dan tidak boleh dikemaskini lagi.');
+            return back()->with('error', 'Permohonan ini telah disemak dan tidak boleh dikemaskini lagi.');
         }
 
         [$oldData, $claim] = $result;
@@ -152,7 +206,11 @@ class TuntutanController extends Controller
             'data_baru' => $claim->toArray(),
         ]);
 
-        return back()->with('success', 'Keputusan permohonan berjaya direkodkan.');
+        $message = $claim->status === 'Pending'
+            ? 'Permohonan diluluskan. Pemohon boleh memuat naik lampiran.'
+            : 'Keputusan permohonan berjaya direkodkan.';
+
+        return back()->with('success', $message);
     }
 
     private function storePurchaseRequest(Request $request, int $userId, string $requestorName, string $tag): void
@@ -180,7 +238,7 @@ class TuntutanController extends Controller
             ],
             'invoice_sent_to_account' => ['required', 'boolean'],
             'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
-            'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+            'attachment' => ['prohibited'],
         ], [
             'purchase_platform.exists' => 'Sila pilih platform pembelian yang telah ditetapkan oleh Superadmin.',
             'payment_method.exists' => 'Sila pilih kaedah bayaran yang telah ditetapkan oleh Superadmin.',
@@ -206,7 +264,6 @@ class TuntutanController extends Controller
             'tarikh_beli' => $validated['request_date'],
             'minggu_tuntutan' => $this->weekFor($requestDate),
             'status' => 'Pending',
-            'attachment' => $this->storeAttachment($request),
         ]);
 
         LogAktiviti::create([
@@ -318,6 +375,19 @@ class TuntutanController extends Controller
         return $request->hasFile('attachment')
             ? $request->file('attachment')->store('attachments', 'public')
             : null;
+    }
+
+    private function isPurchaseRequest(Tuntutan $claim): bool
+    {
+        return in_array($claim->tag, ['Pantry', 'General'], true);
+    }
+
+    private function canUploadAttachment(Tuntutan $claim): bool
+    {
+        return $this->isPurchaseRequest($claim)
+            && $claim->status === 'Pending'
+            && $claim->approval_result === 'Approved'
+            && $claim->attachment === null;
     }
 
     private function presetsFor(string $type)

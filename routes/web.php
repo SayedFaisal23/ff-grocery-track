@@ -33,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/tuntutan/tambah', [TuntutanController::class, 'create'])->name('tuntutan.create');
         Route::post('/tuntutan', [TuntutanController::class, 'store'])->name('tuntutan.store');
         Route::get('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'showAttachment'])->name('tuntutan.attachment');
+        Route::post('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'uploadAttachment'])->name('tuntutan.attachment.store');
     });
 
     // Laluan Khas untuk Superadmin sahaja

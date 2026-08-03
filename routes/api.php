@@ -34,6 +34,7 @@ Route::middleware([AuthenticateApi::class])->group(function () {
     Route::get('/tuntutan', [ApiController::class, 'tuntutanList']);
     Route::post('/tuntutan', [ApiController::class, 'tuntutanStore']);
     Route::patch('/tuntutan/{tuntutan}/status', [ApiController::class, 'tuntutanUpdateStatus']);
+    Route::post('/tuntutan/{tuntutan}/lampiran', [ApiController::class, 'tuntutanUploadAttachment']);
     Route::get('/tuntutan-preset', [ApiController::class, 'tuntutanPresetList']);
     Route::post('/tuntutan-preset', [ApiController::class, 'tuntutanPresetStore']);
     Route::put('/tuntutan-preset/{tuntutanPreset}', [ApiController::class, 'tuntutanPresetUpdate']);

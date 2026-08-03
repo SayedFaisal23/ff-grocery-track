@@ -96,6 +96,25 @@
                                         </a>
                                     </div>
                                 @endif
+                                @if(
+                                    $isPurchaseRequest
+                                    && $claim->status === 'Pending'
+                                    && $claim->approval_result === 'Approved'
+                                    && $claim->attachment === null
+                                    && Auth::id() === $claim->user_id
+                                )
+                                    <form action="{{ route('tuntutan.attachment.store', $claim) }}" method="POST" enctype="multipart/form-data" style="margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border-color);">
+                                        @csrf
+                                        <label for="attachment-{{ $claim->id }}" style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 5px;">Lampiran diperlukan untuk melengkapkan permohonan</label>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                                            <input type="file" id="attachment-{{ $claim->id }}" name="attachment" accept=".jpg,.jpeg,.png,.pdf" required style="max-width: 220px; font-size: 0.78rem;">
+                                            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Muat Naik</button>
+                                        </div>
+                                        @error('attachment')
+                                            <div style="color: var(--color-danger); font-size: 0.78rem; margin-top: 5px;">{{ $message }}</div>
+                                        @enderror
+                                    </form>
+                                @endif
                             </td>
                             <td data-label="Tarikh">
                                 @if($isPurchaseRequest)
@@ -109,6 +128,12 @@
                             <td data-label="Status" class="claim-status-cell">
                                 @if($claim->status === 'Pending')
                                     <span class="badge badge-warning claim-status-badge">Pending</span>
+                                    @if($claim->approval_result === 'Approved')
+                                        <div style="margin-top: 5px;"><span class="badge badge-success">Approved</span></div>
+                                        <div style="font-size: 0.72rem; color: var(--text-dark); margin-top: 5px;">Menunggu lampiran pemohon</div>
+                                    @else
+                                        <div style="font-size: 0.72rem; color: var(--text-dark); margin-top: 5px;">Menunggu kelulusan</div>
+                                    @endif
                                 @else
                                     <span class="badge badge-success claim-status-badge">Completed</span>
                                     @if($claim->approval_result === 'Approved')
@@ -123,7 +148,7 @@
                             </td>
                             @role('Superadmin')
                                 <td data-label="Tindakan Superadmin" style="text-align: right;">
-                                    @if($claim->status === 'Pending')
+                                    @if($claim->status === 'Pending' && $claim->approval_result === null)
                                         <div style="display: inline-flex; gap: 8px;">
                                             <form action="{{ route('tuntutan.status', $claim) }}" method="POST">
                                                 @csrf
@@ -138,6 +163,8 @@
                                                 <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i> Tolak</button>
                                             </form>
                                         </div>
+                                    @elseif($claim->status === 'Pending')
+                                        <span style="font-size: 0.85rem; color: var(--text-dark);">Menunggu lampiran pemohon</span>
                                     @else
                                         <span style="font-size: 0.85rem; color: var(--text-dark);">Status dikunci</span>
                                     @endif

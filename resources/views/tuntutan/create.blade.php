@@ -199,10 +199,10 @@
             <span style="font-size: 0.9rem;">Pilih jenis tuntutan di atas untuk mula mengisi borang.</span>
         </div>
 
-        <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+        <div id="lunch-attachment-section" style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
             <label for="attachment" class="form-label" style="font-weight: 600; font-size: 0.95rem;">
                 <i class="fa-solid fa-paperclip" style="color: var(--color-primary); margin-right: 6px;"></i>
-                Muat Naik Dokumen Sokongan (Pilihan)
+                Muat Naik Dokumen Sokongan Lunch (Pilihan)
             </label>
             <input type="file" name="attachment" id="attachment" class="form-control @error('attachment') is-invalid @enderror" accept=".jpg,.jpeg,.png,.pdf" style="background: var(--bg-surface-hover); color: var(--text-main); border: 1px dashed var(--border-color); padding: 0.6rem;">
             <small style="color: var(--text-dark); display: block; margin-top: 4px;">Format yang dibenarkan: JPG, PNG, PDF (Maksimum 5MB)</small>
@@ -236,6 +236,8 @@
     const requestSection = document.getElementById('section-request');
     const lunchSection = document.getElementById('section-lunch');
     const promptSection = document.getElementById('section-prompt');
+    const lunchAttachmentSection = document.getElementById('lunch-attachment-section');
+    const attachmentInput = document.getElementById('attachment');
 
     function setSectionEnabled(section, enabled) {
         section.querySelectorAll('input, select, textarea').forEach((input) => {
@@ -250,9 +252,11 @@
 
         requestSection.style.display = isRequest ? 'block' : 'none';
         lunchSection.style.display = isLunch ? 'block' : 'none';
+        lunchAttachmentSection.style.display = isLunch ? 'block' : 'none';
         promptSection.style.display = tag ? 'none' : 'block';
         setSectionEnabled(requestSection, isRequest);
         setSectionEnabled(lunchSection, isLunch);
+        attachmentInput.disabled = !isLunch;
     }
 
     radios.forEach((radio) => radio.addEventListener('change', onTagChange));
