@@ -254,6 +254,85 @@ button, input, select, textarea {
     margin: 8px 0;
 }
 
+.inventory-summary {
+    margin-bottom: 1rem;
+}
+
+.inventory-summary-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.inventory-summary-heading h2 {
+    font-size: 1.1rem;
+    letter-spacing: 0.2px;
+}
+
+.inventory-summary-heading span,
+.inventory-stat-description {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.inventory-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 0;
+}
+
+.inventory-summary-grid .card-stat {
+    min-width: 0;
+    min-height: 126px;
+    padding: 0.95rem 0.95rem 0.95rem 1.2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.inventory-summary-grid .card-stat::after {
+    width: 6px;
+    opacity: 0.75;
+}
+
+.inventory-summary-grid .stat-value {
+    font-size: 1.9rem;
+    letter-spacing: 0.2px;
+}
+
+.inventory-stat-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.inventory-stat-label i {
+    color: var(--color-primary);
+    opacity: 0.95;
+}
+
+.card-stat.success .inventory-stat-label i {
+    color: var(--color-success);
+}
+
+.card-stat.warning .inventory-stat-label i {
+    color: var(--color-warning);
+}
+
+.card-stat.danger .inventory-stat-label i {
+    color: var(--color-danger);
+}
+
+.inventory-summary .inventory-stat-description {
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
 .card {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -332,13 +411,38 @@ button, input, select, textarea {
     white-space: nowrap;
 }
 
-.inventory-empty-stock-badge {
+.claim-status-cell {
+    text-align: center;
+}
+
+.claim-value-cell {
+    white-space: nowrap;
+}
+
+.badge.claim-status-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
-    min-height: 24px;
+    text-align: center;
+}
+
+.badge.inventory-empty-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25em;
+    padding: 0.125em 0.45em;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: 1.25;
+    text-align: center;
     vertical-align: middle;
+}
+
+.inventory-unit-label {
+    margin-left: 0.2rem;
+    white-space: nowrap;
+    font-size: 0.95em;
 }
 
 .custom-table td {
@@ -407,6 +511,19 @@ button, input, select, textarea {
     color: var(--color-warning);
 }
 
+.inventory-expiry-warning {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.inventory-expiry-warning-date {
+    color: var(--color-warning);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
 /* Badges */
 .badge {
     padding: 4px 10px;
@@ -422,6 +539,7 @@ button, input, select, textarea {
 .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--color-danger); }
 
 .kategori-pill {
+    font-size: 0.875rem;
     transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
@@ -520,6 +638,48 @@ button, input, select, textarea {
     padding: 12px 16px;
     color: var(--text-main);
     transition: var(--transition-fast);
+}
+
+.date-input-control {
+    position: relative;
+}
+
+.date-input-control .form-control {
+    padding-right: 3.25rem;
+}
+
+.date-picker-proxy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.date-picker-trigger {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    color: var(--text-muted);
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.date-picker-trigger:hover,
+.date-picker-trigger:focus-visible {
+    color: var(--color-primary);
+}
+
+.date-picker-trigger:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 select.form-control {
@@ -639,6 +799,10 @@ select.form-control option {
         grid-template-columns: 1fr;
         gap: 0;
     }
+
+    .inventory-summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 /* Responsive Table and Page Header Styling for Mobile Screen Optimization */
@@ -652,6 +816,68 @@ select.form-control option {
     
     .page-header .btn {
         width: 100%;
+    }
+
+    .inventory-summary-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .inventory-summary {
+        margin-bottom: 0.6rem;
+    }
+
+    .inventory-summary-heading h2 {
+        font-size: 0.95rem;
+        margin: 0;
+        letter-spacing: 0.15px;
+    }
+
+    .inventory-summary-heading span {
+        display: none;
+    }
+
+    .inventory-summary-heading span,
+    .inventory-stat-description {
+        font-size: 0.69rem;
+    }
+
+    .inventory-stat-label {
+        gap: 0.25rem;
+        font-size: 0.76rem;
+    }
+
+    .inventory-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+    }
+
+    .inventory-summary-grid .card-stat {
+        min-height: 82px;
+        padding: 0.6rem 0.6rem 0.6rem 0.85rem;
+    }
+
+    .inventory-summary-grid .stat-value {
+        font-size: 1.15rem;
+        margin: 0.24rem 0;
+        line-height: 1.15;
+    }
+
+    .inventory-summary-grid .inventory-stat-label i {
+        font-size: 0.9rem;
+    }
+
+    .inventory-summary-grid .inventory-summary-card-wide {
+        grid-column: span 2;
+    }
+
+    .badge.inventory-empty-stock-badge {
+        gap: 0.1em;
+    }
+
+    .inventory-unit-label {
+        margin-left: 0.16rem;
     }
 
     .card-header-flex {
@@ -677,9 +903,10 @@ select.form-control option {
     }
 
     .mobile-only-view {
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
+        align-items: stretch;
         padding-bottom: 1rem;
     }
 
@@ -687,10 +914,12 @@ select.form-control option {
         background-color: var(--bg-surface);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 1rem;
+        padding: 0.85rem;
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 0.65rem;
+        min-height: 180px;
+        min-width: 0;
         transition: background-color var(--transition-fast);
     }
 
@@ -724,11 +953,19 @@ select.form-control option {
         line-height: 1.3;
     }
 
-    .mobile-card-action-cue {
-        margin-left: 4px;
-        color: var(--color-primary);
-        font-size: 0.78rem;
-        vertical-align: middle;
+    .item-name-group .item-variant-line {
+        font-size: 0.72rem;
+        color: var(--text-dark);
+        margin-top: 3px;
+        line-height: 1.25;
+        min-height: 1.15rem;
+        display: block;
+    }
+
+    .item-name-group .item-variant-line-placeholder {
+        visibility: hidden;
+        min-height: 1.15rem;
+        overflow: hidden;
     }
 
     .item-name-group .badge {
@@ -738,22 +975,45 @@ select.form-control option {
     .item-expiry {
         font-size: 0.8rem;
         text-align: right;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .expiry-date-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        letter-spacing: 0.4px;
+    }
+
+    .expiry-date-text.expiry-date-text-muted {
+        color: var(--text-muted);
+    }
+
+    .expiry-no-track {
+        font-size: 0.8rem;
+        color: var(--text-dark);
     }
 
     .mobile-card-stats {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 8px;
         background-color: rgba(255, 255, 255, 0.015);
         border: 1px solid rgba(255, 255, 255, 0.03);
         border-radius: var(--radius-sm);
         padding: 8px 12px;
+        margin-top: auto;
     }
 
     .stat-box {
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
         gap: 4px;
+        flex-wrap: nowrap;
     }
 
     .stat-box .stat-label {
@@ -766,8 +1026,18 @@ select.form-control option {
 
     .stat-box .stat-val {
         font-size: 0.85rem;
-    color: var(--text-main);
-}
+        color: var(--text-main);
+        display: flex;
+        justify-content: flex-end;
+        align-items: baseline;
+        text-align: right;
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+
+    .stat-box .stat-val .badge {
+        justify-content: flex-end;
+    }
 
     .stat-box.baki-box {
         border-left: 1px solid rgba(255, 255, 255, 0.05);

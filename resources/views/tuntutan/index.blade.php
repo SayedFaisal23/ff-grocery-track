@@ -54,7 +54,7 @@
                         <th>Barang Pembelian</th>
                         <th>Tarikh Beli</th>
                         <th>Nilai Tuntutan</th>
-                        <th>Status</th>
+                        <th class="claim-status-cell">Status</th>
                         @role('Superadmin')
                         <th style="text-align: right;">Tindakan Superadmin</th>
                         @endrole
@@ -101,14 +101,14 @@
                             @endif
                         </td>
                         <td data-label="Tarikh Beli">{{ $claim->tarikh_beli->format('d/m/Y') }}</td>
-                        <td data-label="Nilai Tuntutan"><strong>RM {{ number_format($claim->nilai_tuntutan, 2) }}</strong></td>
-                        <td data-label="Status">
+                        <td data-label="Nilai Tuntutan" class="claim-value-cell"><strong>RM {{ number_format($claim->nilai_tuntutan, 2) }}</strong></td>
+                        <td data-label="Status" class="claim-status-cell">
                             @if($claim->status === 'Selesai')
-                                <span class="badge badge-success">Selesai (Dibayar)</span>
+                                <span class="badge badge-success claim-status-badge">Selesai (Dibayar)</span>
                             @elseif($claim->status === 'Ditolak')
-                                <span class="badge badge-danger">Ditolak</span>
+                                <span class="badge badge-danger claim-status-badge">Ditolak</span>
                             @else
-                                <span class="badge badge-warning">Dalam Proses</span>
+                                <span class="badge badge-warning claim-status-badge">Dalam Proses</span>
                             @endif
                         </td>
                         @role('Superadmin')
