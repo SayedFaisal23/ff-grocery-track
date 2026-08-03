@@ -94,7 +94,7 @@
                             {{ $claim->nama_item }}
                             @if($claim->attachment)
                                 <div style="margin-top: 4px;">
-                                    <a href="{{ asset('storage/' . $claim->attachment) }}" target="_blank" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 0.72rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); color: var(--text-main);">
+                                    <a href="{{ route('tuntutan.attachment', $claim) }}" target="_blank" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 0.72rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); color: var(--text-main);">
                                         <i class="fa-solid fa-paperclip" style="font-size: 0.7rem;"></i> Resit / Lampiran
                                     </a>
                                 </div>

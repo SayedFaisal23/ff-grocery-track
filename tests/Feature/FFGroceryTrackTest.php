@@ -337,6 +337,47 @@ class FFGroceryTrackTest extends TestCase
         Storage::disk('public')->assertExists($claimFood->attachment);
     }
 
+    public function test_claim_attachment_is_available_to_its_owner_and_superadmin_only(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+        $owner->assignRole('Stocker');
+
+        $otherStocker = User::factory()->create();
+        $otherStocker->assignRole('Stocker');
+
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $attachmentPath = 'attachments/receipt.pdf';
+        Storage::disk('public')->put($attachmentPath, 'receipt content');
+
+        $claim = Tuntutan::create([
+            'user_id' => $owner->id,
+            'nama_item' => 'Barang Ujian',
+            'tag' => 'Stok',
+            'nilai_tuntutan' => 10.00,
+            'tarikh_beli' => '2026-07-20',
+            'minggu_tuntutan' => '2026-W30',
+            'status' => 'Dalam Proses',
+            'attachment' => $attachmentPath,
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('tuntutan.attachment', $claim))
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        $this->actingAs($superadmin)
+            ->get(route('tuntutan.attachment', $claim))
+            ->assertOk();
+
+        $this->actingAs($otherStocker)
+            ->get(route('tuntutan.attachment', $claim))
+            ->assertForbidden();
+    }
+
     public function test_superadmin_can_manage_category_presets(): void
     {
         $superadmin = User::factory()->create();

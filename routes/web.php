@@ -31,6 +31,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/tuntutan', [TuntutanController::class, 'index'])->name('tuntutan.index');
         Route::get('/tuntutan/tambah', [TuntutanController::class, 'create'])->name('tuntutan.create');
         Route::post('/tuntutan', [TuntutanController::class, 'store'])->name('tuntutan.store');
+        Route::get('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'showAttachment'])->name('tuntutan.attachment');
         Route::patch('/tuntutan/{tuntutan}/status', [TuntutanController::class, 'updateStatus'])->name('tuntutan.status');
     });
 

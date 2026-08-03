@@ -6,6 +6,7 @@ use App\Models\Tuntutan;
 use App\Models\LogAktiviti;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class TuntutanController extends Controller
@@ -44,6 +45,37 @@ class TuntutanController extends Controller
         }
 
         return view('tuntutan.create');
+    }
+
+    /**
+     * Paparkan lampiran tuntutan melalui aplikasi, tanpa bergantung pada
+     * pelayan web untuk membenarkan akses kepada symbolic link /storage.
+     */
+    public function showAttachment(Tuntutan $tuntutan)
+    {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Superadmin') && $tuntutan->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $attachmentPath = $tuntutan->attachment;
+
+        if (
+            ! is_string($attachmentPath)
+            || ! str_starts_with($attachmentPath, 'attachments/')
+            || str_contains($attachmentPath, '..')
+            || ! Storage::disk('public')->exists($attachmentPath)
+        ) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response(
+            $attachmentPath,
+            basename($attachmentPath),
+            ['X-Content-Type-Options' => 'nosniff'],
+            'inline'
+        );
     }
 
     /**
