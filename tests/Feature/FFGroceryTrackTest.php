@@ -388,12 +388,15 @@ class FFGroceryTrackTest extends TestCase
             ->assertSee('Saluran / Kaedah Bayaran')
             ->assertSee(Tuntutan::OTHER_PAYMENT_METHOD)
             ->assertSee('id="other_payment_method"', false)
+            ->assertSee('form-control-readonly', false)
+            ->assertSee('value="Own expenses"', false)
+            ->assertSee('aria-readonly="true"', false)
             ->assertSee('Butiran Lunch Mengikut Hari')
             ->assertSee('Pantry')
             ->assertDontSee('Food');
     }
 
-    public function test_stocker_can_submit_an_other_payment_method_only_when_the_detail_is_provided(): void
+    public function test_stocker_other_payment_method_uses_the_fixed_own_expenses_detail(): void
     {
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
@@ -423,25 +426,25 @@ class FFGroceryTrackTest extends TestCase
             ->post('/tuntutan', array_merge($validRequest, [
                 'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
             ]))
-            ->assertSessionHasErrors('other_payment_method');
+            ->assertRedirect('/tuntutan');
+
+        $this->assertDatabaseHas('tuntutan', [
+            'user_id' => $stocker->id,
+            'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+            'other_payment_method' => Tuntutan::OTHER_PAYMENT_METHOD_DETAIL,
+        ]);
 
         $this->actingAs($stocker)
             ->post('/tuntutan', array_merge($validRequest, [
                 'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
                 'other_payment_method' => 'Company e-wallet',
             ]))
-            ->assertRedirect('/tuntutan');
-
-        $this->assertDatabaseHas('tuntutan', [
-            'user_id' => $stocker->id,
-            'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
-            'other_payment_method' => 'Company e-wallet',
-        ]);
+            ->assertSessionHasErrors('other_payment_method');
 
         $this->actingAs($stocker)
             ->get('/tuntutan')
             ->assertOk()
-            ->assertSeeText('Lain-lain — Company e-wallet');
+            ->assertSeeText('Lain-lain — Own expenses');
     }
 
     public function test_claim_statuses_and_responsive_claim_markup_are_clear_and_single_stage(): void
@@ -492,6 +495,10 @@ class FFGroceryTrackTest extends TestCase
             ->assertSee('claim-mobile-summary', false)
             ->assertSee('data-claim-modal-open', false)
             ->assertSee('claim-mobile-modal', false)
+            ->assertSee('claim-detail-rows', false)
+            ->assertDontSee('claim-detail-grid-compact', false)
+            ->assertSeeText('INVOICE NO.:')
+            ->assertSeeText('N/A')
             ->assertSeeText('Submitted')
             ->assertSeeText('Approved - receipt required')
             ->assertSeeText('Completed')
@@ -631,6 +638,180 @@ class FFGroceryTrackTest extends TestCase
             ->assertOk()
             ->assertSeeText('My filtered claim')
             ->assertDontSeeText('Another user filtered claim');
+    }
+
+    public function test_purchase_request_type_and_status_filters_are_safe_and_preserve_calendar_state(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+
+        $baseClaim = [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-08-03',
+            'request_date' => '2026-08-03',
+            'minggu_tuntutan' => '2026-W32',
+        ];
+
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Submitted Pantry claim',
+            'item_specification' => 'Submitted Pantry claim',
+            'tag' => 'Pantry',
+            'status' => 'Pending',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Receipt General claim',
+            'item_specification' => 'Receipt General claim',
+            'tag' => 'General',
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Completed Lunch claim',
+            'tag' => 'Lunch',
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+            'attachment' => 'attachments/receipt.pdf',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Rejected Pantry claim',
+            'item_specification' => 'Rejected Pantry claim',
+            'tag' => 'Pantry',
+            'status' => 'Completed',
+            'approval_result' => 'Rejected',
+        ]));
+
+        $submittedResponse = $this->actingAs($superadmin)->get('/tuntutan?'.http_build_query([
+            'month' => '2026-08',
+            'weeks' => ['2026-W32'],
+            'type' => 'Pantry',
+            'status' => 'submitted',
+        ]));
+
+        $submittedResponse
+            ->assertOk()
+            ->assertSee('claims-select-filters', false)
+            ->assertSee('name="type"', false)
+            ->assertSee('name="status"', false)
+            ->assertSee('claim-detail-rows', false)
+            ->assertSee('claims-table-with-actions', false)
+            ->assertSee('name="type" value="Pantry"', false)
+            ->assertSee('name="status" value="submitted"', false)
+            ->assertSeeText('Clear all')
+            ->assertSeeText('Submitted Pantry claim')
+            ->assertDontSeeText('Receipt General claim')
+            ->assertDontSeeText('Completed Lunch claim')
+            ->assertDontSeeText('Rejected Pantry claim');
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan?month=2026-08&status=completed')
+            ->assertOk()
+            ->assertSeeText('Completed Lunch claim')
+            ->assertDontSeeText('Submitted Pantry claim')
+            ->assertDontSeeText('Receipt General claim')
+            ->assertDontSeeText('Rejected Pantry claim');
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan?month=2026-08&status=receipt_required')
+            ->assertOk()
+            ->assertSeeText('Receipt General claim')
+            ->assertDontSeeText('Submitted Pantry claim')
+            ->assertDontSeeText('Completed Lunch claim')
+            ->assertDontSeeText('Rejected Pantry claim');
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan?month=2026-08&status=rejected')
+            ->assertOk()
+            ->assertSeeText('Rejected Pantry claim')
+            ->assertDontSeeText('Submitted Pantry claim')
+            ->assertDontSeeText('Receipt General claim')
+            ->assertDontSeeText('Completed Lunch claim');
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan?month=2026-08&type=Unknown&status=invalid')
+            ->assertOk()
+            ->assertSeeText('Submitted Pantry claim')
+            ->assertSeeText('Receipt General claim')
+            ->assertSeeText('Completed Lunch claim')
+            ->assertSeeText('Rejected Pantry claim');
+    }
+
+    public function test_purchase_request_sidebar_notification_dots_only_show_actionable_work(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $nonActionableStocker = User::factory()->create();
+        $nonActionableStocker->assignRole('Stocker');
+        $dualRoleUser = User::factory()->create();
+        $dualRoleUser->assignRole(['Superadmin', 'Stocker']);
+
+        $baseClaim = [
+            'requestor_name' => $stocker->name,
+            'nama_item' => 'Notification claim',
+            'item_specification' => 'Notification claim',
+            'tag' => 'Pantry',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-08-03',
+            'request_date' => '2026-08-03',
+            'minggu_tuntutan' => '2026-W32',
+        ];
+
+        Tuntutan::create(array_merge($baseClaim, [
+            'user_id' => $stocker->id,
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'user_id' => $nonActionableStocker->id,
+            'requestor_name' => $nonActionableStocker->name,
+            'status' => 'Pending',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'user_id' => $dualRoleUser->id,
+            'requestor_name' => $dualRoleUser->name,
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'user_id' => $stocker->id,
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+            'attachment' => 'attachments/unviewed-receipt.pdf',
+        ]));
+
+        $this->actingAs($superadmin)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('nav-notification-dot-review', false)
+            ->assertSee('nav-notification-dot-uploaded-receipt', false)
+            ->assertDontSee('nav-notification-dot-receipt', false);
+
+        $this->actingAs($stocker)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('nav-notification-dot-receipt', false)
+            ->assertDontSee('nav-notification-dot-review', false)
+            ->assertDontSee('nav-notification-dot-uploaded-receipt', false)
+            ->assertSeeText('A purchase request needs your receipt upload.');
+
+        $this->actingAs($nonActionableStocker)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertDontSee('nav-notification-dots', false);
+
+        $this->actingAs($dualRoleUser)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('nav-notification-dot-review', false)
+            ->assertSee('nav-notification-dot-uploaded-receipt', false)
+            ->assertSee('nav-notification-dot-receipt', false);
     }
 
     public function test_admin_layout_uses_accessible_category_output_and_prioritised_navigation(): void
@@ -875,6 +1056,88 @@ class FFGroceryTrackTest extends TestCase
         $this->assertDatabaseMissing('tuntutan_presets', ['id' => $preset->id]);
     }
 
+    public function test_superadmin_can_reorder_a_complete_preset_group_with_drag_and_drop_endpoint(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+
+        $first = TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'First platform',
+            'sort_order' => 1,
+        ]);
+        $second = TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Second platform',
+            'sort_order' => 2,
+        ]);
+        $third = TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Third platform',
+            'sort_order' => 3,
+        ]);
+        $paymentMethod = TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
+            'name' => 'Bank Transfer',
+            'sort_order' => 1,
+        ]);
+
+        $payload = [
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'preset_ids' => [$third->id, $first->id, $second->id],
+        ];
+
+        $this->actingAs($stocker)
+            ->patchJson('/tuntutan-preset/reorder', $payload)
+            ->assertForbidden();
+
+        $this->actingAs($superadmin)
+            ->patchJson('/tuntutan-preset/reorder', $payload)
+            ->assertOk()
+            ->assertJsonPath('preset_ids.0', $third->id)
+            ->assertJsonPath('preset_ids.2', $second->id);
+
+        $this->assertDatabaseHas('tuntutan_presets', ['id' => $third->id, 'sort_order' => 1]);
+        $this->assertDatabaseHas('tuntutan_presets', ['id' => $first->id, 'sort_order' => 2]);
+        $this->assertDatabaseHas('tuntutan_presets', ['id' => $second->id, 'sort_order' => 3]);
+        $this->assertTrue(LogAktiviti::query()
+            ->where('aktiviti', 'Menyusun semula pilihan tuntutan.')
+            ->exists());
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan-preset')
+            ->assertOk()
+            ->assertSee('data-preset-drag-handle', false)
+            ->assertSee('preset-reorder-status', false)
+            ->assertDontSee('name="sort_order"', false)
+            ->assertSee('value="Third platform"', false)
+            ->assertSee('value="First platform"', false)
+            ->assertSee('value="Second platform"', false);
+
+        $this->actingAs($superadmin)
+            ->patchJson('/tuntutan-preset/reorder', [
+                'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+                'preset_ids' => [$third->id, $first->id],
+            ])
+            ->assertUnprocessable();
+
+        $this->actingAs($superadmin)
+            ->patchJson('/tuntutan-preset/reorder', [
+                'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+                'preset_ids' => [$third->id, $first->id, $paymentMethod->id],
+            ])
+            ->assertUnprocessable();
+
+        $this->actingAs($superadmin)
+            ->patchJson('/tuntutan-preset/reorder', [
+                'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+                'preset_ids' => [$third->id, $third->id, $second->id],
+            ])
+            ->assertUnprocessable();
+    }
+
     public function test_api_uses_purchase_request_fields_and_completion_workflow(): void
     {
         Storage::fake('public');
@@ -932,7 +1195,7 @@ class FFGroceryTrackTest extends TestCase
             ->assertStatus(409);
     }
 
-    public function test_api_requires_a_detail_for_an_other_payment_method(): void
+    public function test_api_other_payment_method_uses_the_fixed_own_expenses_detail(): void
     {
         $stocker = User::factory()->create(['api_token' => 'stocker-other-payment-token']);
         $stocker->assignRole('Stocker');
@@ -956,16 +1219,128 @@ class FFGroceryTrackTest extends TestCase
 
         $this->withToken('stocker-other-payment-token')
             ->postJson('/api/tuntutan', $payload)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('other_payment_method');
+            ->assertCreated()
+            ->assertJsonPath('payment_method', Tuntutan::OTHER_PAYMENT_METHOD)
+            ->assertJsonPath('other_payment_method', Tuntutan::OTHER_PAYMENT_METHOD_DETAIL);
 
         $this->withToken('stocker-other-payment-token')
             ->postJson('/api/tuntutan', array_merge($payload, [
                 'other_payment_method' => 'Petty cash reimbursement',
             ]))
-            ->assertCreated()
-            ->assertJsonPath('payment_method', Tuntutan::OTHER_PAYMENT_METHOD)
-            ->assertJsonPath('other_payment_method', 'Petty cash reimbursement');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('other_payment_method');
+    }
+
+    public function test_first_superadmin_receipt_view_clears_the_green_notification_once(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+        $owner->assignRole('Stocker');
+        $otherStocker = User::factory()->create();
+        $otherStocker->assignRole('Stocker');
+        $firstSuperadmin = User::factory()->create();
+        $firstSuperadmin->assignRole('Superadmin');
+        $secondSuperadmin = User::factory()->create();
+        $secondSuperadmin->assignRole('Superadmin');
+
+        Storage::disk('public')->put('attachments/new-receipt.pdf', 'new receipt');
+        Storage::disk('public')->put('attachments/lunch-document.pdf', 'lunch document');
+
+        $baseClaim = [
+            'user_id' => $owner->id,
+            'requestor_name' => $owner->name,
+            'nama_item' => 'Receipt review claim',
+            'item_specification' => 'Receipt review claim',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-08-04',
+            'request_date' => '2026-08-04',
+            'date_receive' => '2026-08-04',
+            'minggu_tuntutan' => '2026-W32',
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+        ];
+
+        $receipt = Tuntutan::create(array_merge($baseClaim, [
+            'tag' => 'Pantry',
+            'attachment' => 'attachments/new-receipt.pdf',
+        ]));
+        $historicReceipt = Tuntutan::create(array_merge($baseClaim, [
+            'tag' => 'General',
+            'attachment' => 'attachments/historic-receipt.pdf',
+            'receipt_viewed_at' => now(),
+        ]));
+        $lunchDocument = Tuntutan::create(array_merge($baseClaim, [
+            'tag' => 'Lunch',
+            'attachment' => 'attachments/lunch-document.pdf',
+        ]));
+
+        $this->actingAs($firstSuperadmin)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('nav-notification-dot-uploaded-receipt', false)
+            ->assertDontSee('nav-notification-dot-receipt', false);
+
+        $this->actingAs($owner)
+            ->get(route('tuntutan.attachment', $receipt))
+            ->assertOk();
+        $receipt->refresh();
+        $this->assertNull($receipt->receipt_viewed_at);
+
+        $this->actingAs($otherStocker)
+            ->get(route('tuntutan.attachment', $receipt))
+            ->assertForbidden();
+
+        $this->actingAs($firstSuperadmin)
+            ->get(route('tuntutan.attachment', $lunchDocument))
+            ->assertOk();
+        $lunchDocument->refresh();
+        $this->assertNull($lunchDocument->receipt_viewed_at);
+
+        $this->actingAs($firstSuperadmin)
+            ->get(route('tuntutan.attachment', $receipt))
+            ->assertOk();
+        $receipt->refresh();
+        $this->assertSame($firstSuperadmin->id, $receipt->receipt_viewed_by);
+        $this->assertNotNull($receipt->receipt_viewed_at);
+        $this->assertTrue(LogAktiviti::query()
+            ->where('user_id', $firstSuperadmin->id)
+            ->where('aktiviti', "{$firstSuperadmin->name} telah melihat resit permohonan ID {$receipt->id} ({$receipt->nama_item}).")
+            ->exists());
+
+        $firstViewedAt = $receipt->receipt_viewed_at->toDateTimeString();
+        $this->actingAs($secondSuperadmin)
+            ->get(route('tuntutan.attachment', $receipt))
+            ->assertOk();
+        $receipt->refresh();
+        $this->assertSame($firstSuperadmin->id, $receipt->receipt_viewed_by);
+        $this->assertSame($firstViewedAt, $receipt->receipt_viewed_at->toDateTimeString());
+
+        $this->actingAs($secondSuperadmin)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertDontSee('nav-notification-dot-uploaded-receipt', false);
+
+        $this->actingAs($firstSuperadmin)
+            ->get('/tuntutan')
+            ->assertOk()
+            ->assertSee('data-attachment-open-link', false)
+            ->assertSee('data-attachment-open-status', false)
+            ->assertSeeText('Receipt viewed by '.$firstSuperadmin->name);
+
+        $historicReceipt->refresh();
+        $this->assertNotNull($historicReceipt->receipt_viewed_at);
+
+        $missingReceipt = Tuntutan::create(array_merge($baseClaim, [
+            'tag' => 'General',
+            'attachment' => 'attachments/missing-receipt.pdf',
+        ]));
+        $this->actingAs($firstSuperadmin)
+            ->get(route('tuntutan.attachment', $missingReceipt))
+            ->assertNotFound();
+        $missingReceipt->refresh();
+        $this->assertNull($missingReceipt->receipt_viewed_at);
     }
 
     public function test_claim_attachment_is_available_to_its_owner_and_superadmin_only(): void

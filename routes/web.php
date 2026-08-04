@@ -45,6 +45,8 @@ Route::middleware(['auth'])->group(function () {
             ->only(['index', 'store', 'destroy']);
 
         // Tetapan pilihan permohonan pembelian
+        Route::patch('/tuntutan-preset/reorder', [TuntutanPresetController::class, 'reorder'])
+            ->name('tuntutan-preset.reorder');
         Route::resource('tuntutan-preset', TuntutanPresetController::class)
             ->only(['index', 'store', 'update', 'destroy']);
 

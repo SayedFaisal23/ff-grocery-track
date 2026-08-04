@@ -10,27 +10,25 @@
     <h3 class="claim-item-name">{{ $itemName }}</h3>
 
     @if($isPurchaseRequest)
-        <dl class="claim-detail-grid">
-            <div class="claim-detail-item claim-detail-purpose">
-                <dt>Purpose</dt>
+        <dl class="claim-detail-rows">
+            <div class="claim-detail-row">
+                <dt>PURPOSE:</dt>
                 <dd>{{ $claim->purchase_purpose }}</dd>
             </div>
-            @if($claim->invoice_no)
-                <div class="claim-detail-item">
-                    <dt>Invoice no.</dt>
-                    <dd>{{ $claim->invoice_no }}</dd>
-                </div>
-            @endif
-            <div class="claim-detail-item">
-                <dt>Purchase platform</dt>
+            <div class="claim-detail-row">
+                <dt>INVOICE NO.:</dt>
+                <dd>{{ filled($claim->invoice_no) ? $claim->invoice_no : 'N/A' }}</dd>
+            </div>
+            <div class="claim-detail-row">
+                <dt>PURCHASE PLATFORM:</dt>
                 <dd>{{ $claim->purchase_platform }}</dd>
             </div>
-            <div class="claim-detail-item">
-                <dt>Payment method</dt>
+            <div class="claim-detail-row">
+                <dt>PAYMENT METHOD:</dt>
                 <dd>{{ $claim->paymentMethodDisplay() }}</dd>
             </div>
-            <div class="claim-detail-item">
-                <dt>Invoice sent to account</dt>
+            <div class="claim-detail-row">
+                <dt>INVOICE SENT TO ACCOUNT:</dt>
                 <dd>{{ $claim->invoice_sent_to_account ? 'Yes' : 'No' }}</dd>
             </div>
         </dl>
@@ -38,9 +36,18 @@
 
     @if($claim->attachment)
         <div class="claim-attachment-link">
-            <a href="{{ route('tuntutan.attachment', $claim) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-                <i class="fa-solid fa-paperclip"></i> Supporting document
+            <a href="{{ route('tuntutan.attachment', $claim) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" data-attachment-open-link>
+                <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+                <span data-attachment-open-label>Supporting document</span>
             </a>
+            <span class="sr-only" data-attachment-open-status role="status" aria-live="polite"></span>
+
+            @if($claim->isPurchaseRequest() && $claim->receipt_viewed_at)
+                <p class="claim-receipt-viewed">
+                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                    Receipt viewed by {{ $claim->receiptViewer?->name ?? 'a Superadmin' }} on {{ $claim->receipt_viewed_at->format('d/m/Y, H:i') }}
+                </p>
+            @endif
         </div>
     @endif
 

@@ -37,6 +37,18 @@
     box-sizing: border-box;
 }
 
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-main);
@@ -119,10 +131,40 @@ button, input, select, textarea {
     align-items: center;
     gap: 14px;
     padding: 12px 16px;
+    position: relative;
     border-radius: var(--radius-sm);
     font-weight: 500;
     color: var(--text-muted);
     border: 1px solid transparent;
+}
+
+.nav-notification-dots {
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    display: flex;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.nav-notification-dot {
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--bg-surface);
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.nav-notification-dot-review {
+    background: var(--color-warning);
+}
+
+.nav-notification-dot-uploaded-receipt {
+    background: var(--color-success);
+}
+
+.nav-notification-dot-receipt {
+    background: var(--color-primary);
 }
 
 .nav-item:hover, .nav-item.active {
@@ -696,6 +738,20 @@ select.form-control option {
 .form-control:focus {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--border-glow);
+}
+
+.form-control-readonly,
+.form-control[readonly] {
+    background: var(--bg-surface-hover);
+    border-style: dashed;
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.form-control-readonly:focus,
+.form-control[readonly]:focus {
+    border-color: var(--border-color);
+    box-shadow: none;
 }
 
 .form-row {
@@ -1403,6 +1459,12 @@ html[data-theme="light"] .form-control {
     background-color: #ffffff;
 }
 
+html[data-theme="light"] .form-control-readonly,
+html[data-theme="light"] .form-control[readonly] {
+    background-color: #edf2f7;
+    color: var(--text-muted);
+}
+
 html[data-theme="light"] select.form-control {
     color-scheme: light;
 }
@@ -1527,6 +1589,62 @@ html[data-theme="light"] .badge-general {
     min-width: 340px;
 }
 
+.preset-reorder-header,
+.preset-reorder-cell {
+    width: 70px;
+    text-align: center;
+}
+
+.preset-drag-handle {
+    display: inline-grid;
+    grid-template-columns: repeat(2, 4px);
+    grid-template-rows: repeat(3, 4px);
+    gap: 3px;
+    padding: 0.55rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-hover);
+    color: var(--text-muted);
+    cursor: grab;
+    touch-action: none;
+}
+
+.preset-drag-handle > span:not(.sr-only) {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.preset-drag-handle:hover,
+.preset-drag-handle:focus-visible,
+.preset-drag-handle[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--color-primary);
+}
+
+.preset-drag-handle:active,
+[data-preset-row].is-reordering .preset-drag-handle {
+    cursor: grabbing;
+}
+
+[data-preset-row].is-reordering {
+    opacity: 0.65;
+}
+
+[data-preset-list].is-saving .preset-drag-handle {
+    cursor: progress;
+    pointer-events: none;
+}
+
+.preset-reorder-status {
+    min-height: 1.25rem;
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
 /* Claims: spacious desktop table and card-based phone view */
 .claims-week-card {
     margin-bottom: 2rem;
@@ -1550,13 +1668,29 @@ html[data-theme="light"] .badge-general {
 }
 
 .claims-table {
-    min-width: 1200px;
+    min-width: 0;
+    table-layout: fixed;
 }
 
 .claims-table .claim-details-header,
 .claims-table .claim-details-cell {
-    min-width: 390px;
+    min-width: 0;
 }
+
+.claims-requester-column { width: 18%; }
+.claims-type-column { width: 10%; }
+.claims-details-column { width: 32%; }
+.claims-dates-column { width: 13%; }
+.claims-amount-column { width: 10%; }
+.claims-status-column { width: 17%; }
+
+.claims-table-with-actions .claims-requester-column { width: 15%; }
+.claims-table-with-actions .claims-type-column { width: 9%; }
+.claims-table-with-actions .claims-details-column { width: 28%; }
+.claims-table-with-actions .claims-dates-column { width: 10%; }
+.claims-table-with-actions .claims-amount-column { width: 9%; }
+.claims-table-with-actions .claims-status-column { width: 17%; }
+.claims-table-with-actions .claims-actions-column { width: 12%; }
 
 .claims-table .claim-details-cell {
     vertical-align: top;
@@ -1587,26 +1721,23 @@ html[data-theme="light"] .badge-general {
     line-height: 1.4;
 }
 
-.claim-detail-grid {
+.claim-detail-rows {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    margin-top: 0.65rem;
+    gap: 0.35rem;
+    margin-top: 0.55rem;
 }
 
-.claim-detail-item {
+.claim-detail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
     min-width: 0;
-    padding: 0.55rem 0.65rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.55rem;
+    border-left: 2px solid rgba(99, 102, 241, 0.28);
     background: var(--bg-surface-hover);
 }
 
-.claim-detail-purpose {
-    grid-column: 1 / -1;
-}
-
-.claim-detail-item dt,
+.claim-detail-row dt,
 .claim-mobile-meta span {
     color: var(--text-dark);
     font-size: 0.7rem;
@@ -1615,16 +1746,31 @@ html[data-theme="light"] .badge-general {
     text-transform: uppercase;
 }
 
-.claim-detail-item dd {
+.claim-detail-row dd {
     color: var(--text-main);
     font-size: 0.8rem;
     line-height: 1.4;
-    margin-top: 0.15rem;
+    min-width: 0;
     overflow-wrap: anywhere;
 }
 
 .claim-attachment-link {
-    margin-top: 0.7rem;
+    margin-top: 0.45rem;
+}
+
+.claim-attachment-link .is-opening {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+.claim-receipt-viewed {
+    align-items: center;
+    color: var(--color-success);
+    display: flex;
+    font-size: 0.75rem;
+    gap: 0.35rem;
+    margin: 0.45rem 0 0;
 }
 
 .claim-attachment-upload {
@@ -1684,7 +1830,7 @@ html[data-theme="light"] .badge-general {
 }
 
 .claim-actions-cell {
-    min-width: 180px;
+    min-width: 0;
     text-align: right;
 }
 
@@ -1812,6 +1958,43 @@ html[data-theme="light"] .badge-general {
 
 .claims-week-filter-clear {
     flex: 0 0 auto;
+}
+
+.claims-select-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.claims-select-filters label {
+    display: grid;
+    gap: 0.3rem;
+    min-width: min(100%, 180px);
+}
+
+.claims-select-filters label > span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.claims-select-filters select {
+    width: 100%;
+    min-height: 2.4rem;
+    padding: 0.45rem 2rem 0.45rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-hover);
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.claims-select-filters select:focus-visible {
+    border-color: var(--color-primary);
+    outline: 2px solid rgba(99, 102, 241, 0.25);
+    outline-offset: 1px;
 }
 
 .claims-selected-weeks {
@@ -2042,6 +2225,26 @@ html[data-theme="light"] .badge-general {
     .preset-group-card {
         padding: 1rem;
     }
+
+    .preset-table {
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    .preset-table th,
+    .preset-table td {
+        padding: 0.7rem 0.45rem;
+    }
+
+    .preset-reorder-header,
+    .preset-reorder-cell {
+        width: 54px;
+    }
+
+    .preset-table td:last-child,
+    .preset-table th:last-child {
+        width: 84px;
+    }
 }
 
 /* The claims view responds to the usable content width, including the desktop sidebar. */
@@ -2164,14 +2367,6 @@ html[data-theme="light"] .badge-general {
         overflow-wrap: anywhere;
     }
 
-    .claim-detail-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .claim-detail-purpose {
-        grid-column: auto;
-    }
-
     .claim-mobile-meta {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2256,6 +2451,15 @@ html[data-theme="light"] .badge-general {
     .claims-week-filter-clear {
         width: 100%;
         justify-content: center;
+    }
+
+    .claims-select-filters {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .claims-select-filters label {
+        min-width: 0;
     }
 
     .claims-calendar-disclosure summary {

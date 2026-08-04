@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
 use App\Models\TuntutanPreset;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,89 @@ class TuntutanPresetController extends Controller
         ]);
 
         return redirect()->route('tuntutan-preset.index')->with('success', 'Pilihan berjaya dikemaskini.');
+    }
+
+    /**
+     * Save the complete drag-and-drop order for one preset group.
+     */
+    public function reorder(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(TuntutanPreset::types())],
+            'preset_ids' => ['required', 'array'],
+            'preset_ids.*' => ['required', 'integer'],
+        ]);
+
+        $orderedIds = array_map('intval', $validated['preset_ids']);
+
+        $result = DB::transaction(function () use ($validated, $orderedIds) {
+            $presets = TuntutanPreset::query()
+                ->forType($validated['type'])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            $expectedIds = array_map('intval', $presets->modelKeys());
+
+            if (
+                count($orderedIds) !== count($expectedIds)
+                || count($orderedIds) !== count(array_unique($orderedIds))
+                || array_diff($orderedIds, $expectedIds) !== []
+            ) {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'Susunan pilihan tidak sah. Sila muat semula halaman dan cuba lagi.',
+                    'errors' => [
+                        'preset_ids' => ['Susunan pilihan tidak sah. Sila muat semula halaman dan cuba lagi.'],
+                    ],
+                ], 422));
+            }
+
+            $oldData = [];
+
+            foreach ($presets as $preset) {
+                $oldData[] = [
+                    'id' => $preset->id,
+                    'name' => $preset->name,
+                    'sort_order' => $preset->sort_order,
+                ];
+            }
+
+            foreach ($orderedIds as $index => $presetId) {
+                TuntutanPreset::query()
+                    ->whereKey($presetId)
+                    ->update(['sort_order' => $index + 1]);
+            }
+
+            $newPresets = TuntutanPreset::query()
+                ->whereIn('id', $orderedIds)
+                ->get(['id', 'name', 'sort_order'])
+                ->sortBy('sort_order');
+            $newData = [];
+
+            foreach ($newPresets as $preset) {
+                $newData[] = [
+                    'id' => $preset->id,
+                    'name' => $preset->name,
+                    'sort_order' => $preset->sort_order,
+                ];
+            }
+
+            return [$oldData, $newData];
+        });
+
+        [$oldData, $newData] = $result;
+
+        LogAktiviti::create([
+            'user_id' => Auth::id(),
+            'aktiviti' => 'Menyusun semula pilihan tuntutan.',
+            'data_lama' => $oldData,
+            'data_baru' => $newData,
+        ]);
+
+        return response()->json([
+            'message' => 'Susunan pilihan berjaya disimpan.',
+            'preset_ids' => $orderedIds,
+        ]);
     }
 
     public function destroy(TuntutanPreset $tuntutanPreset)

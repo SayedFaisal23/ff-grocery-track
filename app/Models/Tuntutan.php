@@ -3,11 +3,24 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Tuntutan extends Model
 {
     public const OTHER_PAYMENT_METHOD = 'Lain-lain';
+    public const OTHER_PAYMENT_METHOD_DETAIL = 'Own expenses';
+
+    /** @var array<int, string> */
+    public const FILTERABLE_TYPES = ['Pantry', 'General', 'Lunch'];
+
+    /** @var array<int, string> */
+    public const FILTERABLE_WORKFLOW_STATUSES = [
+        'submitted',
+        'receipt_required',
+        'completed',
+        'rejected',
+    ];
 
     protected $table = 'tuntutan';
 
@@ -21,6 +34,8 @@ class Tuntutan extends Model
         'minggu_tuntutan',
         'status',
         'attachment',
+        'receipt_viewed_by',
+        'receipt_viewed_at',
         'request_date',
         'item_specification',
         'purchase_purpose',
@@ -44,6 +59,7 @@ class Tuntutan extends Model
         'total_item_amount' => 'decimal:2',
         'invoice_sent_to_account' => 'boolean',
         'reviewed_at' => 'datetime',
+        'receipt_viewed_at' => 'datetime',
     ];
 
     /**
@@ -60,6 +76,14 @@ class Tuntutan extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Get the Superadmin who first viewed an uploaded purchase receipt.
+     */
+    public function receiptViewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'receipt_viewed_by');
     }
 
     /**
@@ -87,6 +111,79 @@ class Tuntutan extends Model
             && $this->status === 'Pending'
             && $this->approval_result === 'Approved'
             && $this->attachment === null;
+    }
+
+    /**
+     * Limit the query to claims that still require a Superadmin decision.
+     */
+    public function scopeAwaitingReview(Builder $query): Builder
+    {
+        return $query
+            ->where('status', 'Pending')
+            ->whereNull('approval_result');
+    }
+
+    /**
+     * Limit the query to approved purchase requests awaiting the requester's
+     * receipt upload.
+     */
+    public function scopeAwaitingReceiptUpload(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('tag', ['Pantry', 'General'])
+            ->where('status', 'Pending')
+            ->where('approval_result', 'Approved')
+            ->whereNull('attachment');
+    }
+
+    /**
+     * Limit the query to new purchase receipts that a Superadmin has not yet
+     * opened. Lunch supporting documents are deliberately excluded.
+     */
+    public function scopeAwaitingReceiptReview(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('tag', ['Pantry', 'General'])
+            ->where('status', 'Completed')
+            ->where('approval_result', 'Approved')
+            ->whereNotNull('attachment')
+            ->whereNull('receipt_viewed_at');
+    }
+
+    /**
+     * Determine whether this completed purchase receipt still needs a
+     * Superadmin to open it.
+     */
+    public function isAwaitingReceiptReview(): bool
+    {
+        return $this->isPurchaseRequest()
+            && $this->status === 'Completed'
+            && $this->approval_result === 'Approved'
+            && $this->attachment !== null
+            && $this->receipt_viewed_at === null;
+    }
+
+    /**
+     * Apply one of the visible claim workflow stages to a query.
+     */
+    public function scopeWithWorkflowStatus(Builder $query, string $status): Builder
+    {
+        return match ($status) {
+            'submitted' => $query->awaitingReview(),
+            'receipt_required' => $query->awaitingReceiptUpload(),
+            'rejected' => $query->where('approval_result', 'Rejected'),
+            'completed' => $query->whereNot(function (Builder $statusQuery): void {
+                $statusQuery
+                    ->where(function (Builder $reviewQuery): void {
+                        $reviewQuery->awaitingReview();
+                    })
+                    ->orWhere(function (Builder $receiptQuery): void {
+                        $receiptQuery->awaitingReceiptUpload();
+                    })
+                    ->orWhere('approval_result', 'Rejected');
+            }),
+            default => $query,
+        };
     }
 
     /**

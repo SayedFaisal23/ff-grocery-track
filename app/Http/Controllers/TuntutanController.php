@@ -21,9 +21,11 @@ class TuntutanController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Tuntutan::query()->with(['user', 'reviewer']);
+        $query = Tuntutan::query()->with(['user', 'reviewer', 'receiptViewer']);
         $selectedWeeks = $this->selectedWeeks($request);
         $calendarMonth = $this->calendarMonth($request);
+        $selectedType = $this->selectedType($request);
+        $selectedStatus = $this->selectedStatus($request);
 
         if ($user->hasRole('Stocker')) {
             $query->where('user_id', $user->id);
@@ -31,6 +33,14 @@ class TuntutanController extends Controller
 
         if ($selectedWeeks !== []) {
             $query->whereIn('minggu_tuntutan', $selectedWeeks);
+        }
+
+        if ($selectedType !== null) {
+            $query->where('tag', $selectedType);
+        }
+
+        if ($selectedStatus !== null) {
+            $query->withWorkflowStatus($selectedStatus);
         }
 
         $claims = $query
@@ -46,6 +56,8 @@ class TuntutanController extends Controller
             'calendarWeeks',
             'claimsGrouped',
             'selectedWeeks',
+            'selectedType',
+            'selectedStatus',
         ));
     }
 
@@ -85,6 +97,36 @@ class TuntutanController extends Controller
             || ! Storage::disk('public')->exists($attachmentPath)
         ) {
             abort(404);
+        }
+
+        if ($user->hasRole('Superadmin')) {
+            $receiptView = DB::transaction(function () use ($tuntutan, $user) {
+                $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
+
+                if (! $claim->isAwaitingReceiptReview()) {
+                    return null;
+                }
+
+                $oldData = $claim->toArray();
+                $claim->update([
+                    'receipt_viewed_by' => $user->id,
+                    'receipt_viewed_at' => now(),
+                ]);
+
+                return [$oldData, $claim];
+            });
+
+            if ($receiptView !== null) {
+                [$oldData, $claim] = $receiptView;
+
+                LogAktiviti::create([
+                    'user_id' => $user->id,
+                    'aktiviti' => "{$user->name} telah melihat resit permohonan ID {$claim->id} ({$claim->nama_item}).",
+                    'item_id' => null,
+                    'data_lama' => $oldData,
+                    'data_baru' => $claim->toArray(),
+                ]);
+            }
         }
 
         return Storage::disk('public')->response(
@@ -237,7 +279,7 @@ class TuntutanController extends Controller
 
         if ($isOtherPaymentMethod) {
             $paymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD]);
-            $otherPaymentMethodRules[] = 'required';
+            $otherPaymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD_DETAIL]);
         } else {
             $paymentMethodRules[] = Rule::exists('tuntutan_presets', 'name')
                 ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD);
@@ -266,7 +308,7 @@ class TuntutanController extends Controller
         ], [
             'purchase_platform.exists' => 'Sila pilih platform pembelian yang telah ditetapkan oleh Superadmin.',
             'payment_method.exists' => 'Please select a payment method configured by the Superadmin.',
-            'other_payment_method.required' => 'Please specify the other payment method.',
+            'other_payment_method.in' => 'Sila nyatakan kaedah pembayaran',
             'date_receive.after_or_equal' => 'Tarikh terima tidak boleh sebelum tarikh permohonan.',
         ]);
 
@@ -283,7 +325,7 @@ class TuntutanController extends Controller
             'nilai_tuntutan' => $validated['total_item_amount'],
             'total_item_amount' => $validated['total_item_amount'],
             'payment_method' => $validated['payment_method'],
-            'other_payment_method' => $isOtherPaymentMethod ? trim($validated['other_payment_method']) : null,
+            'other_payment_method' => $isOtherPaymentMethod ? Tuntutan::OTHER_PAYMENT_METHOD_DETAIL : null,
             'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
             'request_date' => $validated['request_date'],
             'date_receive' => $validated['date_receive'],
@@ -438,6 +480,40 @@ class TuntutanController extends Controller
             ->sortDesc()
             ->values()
             ->all();
+    }
+
+    /**
+     * Return one supported claim type from the query string, if selected.
+     */
+    private function selectedType(Request $request): ?string
+    {
+        $type = $request->query('type');
+
+        if (! is_string($type)) {
+            return null;
+        }
+
+        $type = trim($type);
+
+        return in_array($type, Tuntutan::FILTERABLE_TYPES, true) ? $type : null;
+    }
+
+    /**
+     * Return one supported visible workflow status from the query string.
+     */
+    private function selectedStatus(Request $request): ?string
+    {
+        $status = $request->query('status');
+
+        if (! is_string($status)) {
+            return null;
+        }
+
+        $status = trim($status);
+
+        return in_array($status, Tuntutan::FILTERABLE_WORKFLOW_STATUSES, true)
+            ? $status
+            : null;
     }
 
     private function isValidIsoWeek(string $week): bool

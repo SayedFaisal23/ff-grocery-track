@@ -60,7 +60,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="requestor_name">Nama Pemohon</label>
-                    <input type="text" id="requestor_name" class="form-control" value="{{ Auth::user()->name }}" readonly>
+                    <input type="text" id="requestor_name" class="form-control form-control-readonly" value="{{ Auth::user()->name }}" readonly aria-readonly="true">
                     <small style="color: var(--text-dark); display: block; margin-top: 4px;">Direkodkan daripada akaun anda.</small>
                 </div>
                 <div class="form-group">
@@ -135,7 +135,7 @@
 
             <div id="other-payment-method-group" class="form-group" hidden>
                 <label class="form-label" for="other_payment_method">Sila nyatakan kaedah pembayaran</label>
-                <input type="text" id="other_payment_method" name="other_payment_method" class="form-control @error('other_payment_method') is-invalid @enderror" value="{{ old('other_payment_method') }}" maxlength="255" placeholder="Example: e-wallet, cheque, or another method">
+                <input type="text" id="other_payment_method" name="other_payment_method" class="form-control form-control-readonly @error('other_payment_method') is-invalid @enderror" value="{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD_DETAIL }}" readonly aria-readonly="true">
                 @error('other_payment_method')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                 @enderror
@@ -257,7 +257,8 @@
 
         otherPaymentMethodGroup.hidden = !isOtherPaymentMethod;
         otherPaymentMethodInput.disabled = !isOtherPaymentMethod || !isRequestEnabled;
-        otherPaymentMethodInput.required = isOtherPaymentMethod && isRequestEnabled;
+        otherPaymentMethodInput.value = isOtherPaymentMethod ? @json(\App\Models\Tuntutan::OTHER_PAYMENT_METHOD_DETAIL) : '';
+        otherPaymentMethodInput.required = false;
     }
 
     function setSectionEnabled(section, enabled) {

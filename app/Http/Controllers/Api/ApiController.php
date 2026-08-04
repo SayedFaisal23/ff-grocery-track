@@ -364,7 +364,7 @@ class ApiController extends Controller
 
             if ($isOtherPaymentMethod) {
                 $paymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD]);
-                $otherPaymentMethodRules[] = 'required';
+                $otherPaymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD_DETAIL]);
             } else {
                 $paymentMethodRules[] = Rule::exists('tuntutan_presets', 'name')
                     ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD);
@@ -403,7 +403,7 @@ class ApiController extends Controller
                 'nilai_tuntutan' => $validated['total_item_amount'],
                 'total_item_amount' => $validated['total_item_amount'],
                 'payment_method' => $validated['payment_method'],
-                'other_payment_method' => $isOtherPaymentMethod ? trim($validated['other_payment_method']) : null,
+                'other_payment_method' => $isOtherPaymentMethod ? Tuntutan::OTHER_PAYMENT_METHOD_DETAIL : null,
                 'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
                 'request_date' => $validated['request_date'],
                 'date_receive' => $validated['date_receive'],

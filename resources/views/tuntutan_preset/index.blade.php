@@ -59,17 +59,17 @@
             @endif
 
             <div class="table-wrapper preset-table-wrapper">
-                <table class="custom-table preset-table">
+                <table class="custom-table preset-table" data-preset-reorder-url="{{ route('tuntutan-preset.reorder') }}">
                     <thead>
                         <tr>
                             <th>Pilihan</th>
-                            <th style="width: 95px;">Turutan</th>
+                            <th class="preset-reorder-header">Susun</th>
                             <th style="text-align: right;">Tindakan</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-preset-list data-preset-type="{{ $type }}">
                         @forelse($group['items'] as $preset)
-                            <tr>
+                            <tr data-preset-row data-preset-id="{{ $preset->id }}">
                                 <td>
                                     <input
                                         type="text"
@@ -82,17 +82,20 @@
                                         required
                                     >
                                 </td>
-                                <td>
-                                    <input
-                                        type="number"
-                                        name="sort_order"
-                                        form="preset-update-{{ $preset->id }}"
-                                        class="form-control"
-                                        value="{{ $preset->sort_order }}"
-                                        min="0"
-                                        aria-label="Turutan {{ $preset->name }}"
-                                        required
+                                <td class="preset-reorder-cell">
+                                    <button
+                                        type="button"
+                                        class="preset-drag-handle"
+                                        draggable="true"
+                                        data-preset-drag-handle
+                                        aria-label="Seret {{ $preset->name }} untuk menyusun semula"
+                                        aria-pressed="false"
                                     >
+                                        @for($dot = 0; $dot < 6; $dot++)
+                                            <span aria-hidden="true"></span>
+                                        @endfor
+                                        <span class="sr-only">Seret untuk menyusun semula</span>
+                                    </button>
                                 </td>
                                 <td style="text-align: right; white-space: nowrap;">
                                     <form id="preset-update-{{ $preset->id }}" action="{{ route('tuntutan-preset.update', $preset) }}" method="POST" style="display: inline;">
@@ -122,7 +125,256 @@
                     </tbody>
                 </table>
             </div>
+            <p class="preset-reorder-status" data-preset-reorder-status role="status" aria-live="polite"></p>
         </section>
     @endforeach
 </div>
+
+<script>
+    (() => {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+        document.querySelectorAll('[data-preset-list]').forEach((list) => {
+            const table = list.closest('[data-preset-reorder-url]');
+            const status = table?.closest('.preset-group-card')?.querySelector('[data-preset-reorder-status]');
+            const reorderUrl = table?.dataset.presetReorderUrl;
+            let activeRow = null;
+            let activeHandle = null;
+            let initialOrder = [];
+            let dropped = false;
+            let isSaving = false;
+
+            if (!table || !status || !reorderUrl || !csrfToken) {
+                return;
+            }
+
+            const rows = () => Array.from(list.querySelectorAll('[data-preset-row]'));
+            const currentOrder = () => rows().map((row) => row.dataset.presetId);
+            const sameOrder = (first, second) => first.length === second.length && first.every((id, index) => id === second[index]);
+
+            const restoreOrder = (order) => {
+                order.forEach((presetId) => {
+                    const row = list.querySelector(`[data-preset-id="${presetId}"]`);
+                    if (row) {
+                        list.append(row);
+                    }
+                });
+            };
+
+            const moveRowToPointer = (row, clientY) => {
+                const target = rows().find((candidate) => {
+                    if (candidate === row) {
+                        return false;
+                    }
+
+                    const bounds = candidate.getBoundingClientRect();
+                    return clientY < bounds.top + (bounds.height / 2);
+                });
+
+                if (target) {
+                    list.insertBefore(row, target);
+                } else {
+                    list.append(row);
+                }
+            };
+
+            const beginReorder = (row, handle) => {
+                if (isSaving || activeRow) {
+                    return false;
+                }
+
+                activeRow = row;
+                activeHandle = handle;
+                initialOrder = currentOrder();
+                dropped = false;
+                row.classList.add('is-reordering');
+                handle.setAttribute('aria-pressed', 'true');
+                status.textContent = 'Menyusun semula pilihan. Lepaskan untuk simpan.';
+
+                return true;
+            };
+
+            const endReorder = () => {
+                activeRow?.classList.remove('is-reordering');
+                activeHandle?.setAttribute('aria-pressed', 'false');
+                activeRow = null;
+                activeHandle = null;
+            };
+
+            const saveOrder = async (previousOrder) => {
+                const presetIds = currentOrder();
+
+                if (sameOrder(previousOrder, presetIds)) {
+                    status.textContent = '';
+                    return;
+                }
+
+                isSaving = true;
+                list.classList.add('is-saving');
+                status.textContent = 'Menyimpan susunan...';
+
+                try {
+                    const response = await fetch(reorderUrl, {
+                        method: 'PATCH',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            type: list.dataset.presetType,
+                            preset_ids: presetIds,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Unable to save preset order.');
+                    }
+
+                    status.textContent = 'Susunan pilihan berjaya disimpan.';
+                } catch (error) {
+                    restoreOrder(previousOrder);
+                    status.textContent = 'Susunan tidak dapat disimpan. Susunan asal telah dipulihkan.';
+                } finally {
+                    isSaving = false;
+                    list.classList.remove('is-saving');
+                }
+            };
+
+            list.querySelectorAll('[data-preset-drag-handle]').forEach((handle) => {
+                const row = handle.closest('[data-preset-row]');
+
+                if (!row) {
+                    return;
+                }
+
+                handle.addEventListener('dragstart', (event) => {
+                    if (!beginReorder(row, handle)) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', row.dataset.presetId);
+                });
+
+                handle.addEventListener('dragend', () => {
+                    if (!activeRow) {
+                        return;
+                    }
+
+                    if (!dropped) {
+                        restoreOrder(initialOrder);
+                        status.textContent = '';
+                    }
+
+                    endReorder();
+                });
+
+                handle.addEventListener('pointerdown', (event) => {
+                    if (event.pointerType === 'mouse' || !beginReorder(row, handle)) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    handle.setPointerCapture(event.pointerId);
+                });
+
+                handle.addEventListener('pointermove', (event) => {
+                    if (event.pointerType !== 'mouse' && activeRow === row) {
+                        moveRowToPointer(row, event.clientY);
+                    }
+                });
+
+                handle.addEventListener('pointerup', (event) => {
+                    if (event.pointerType !== 'mouse' && activeRow === row) {
+                        const previousOrder = initialOrder;
+                        endReorder();
+                        saveOrder(previousOrder);
+                    }
+                });
+
+                handle.addEventListener('pointercancel', (event) => {
+                    if (event.pointerType !== 'mouse' && activeRow === row) {
+                        restoreOrder(initialOrder);
+                        status.textContent = '';
+                        endReorder();
+                    }
+                });
+
+                handle.addEventListener('keydown', (event) => {
+                    const isToggleKey = event.key === ' ' || event.key === 'Enter';
+
+                    if (isToggleKey && !activeRow) {
+                        event.preventDefault();
+                        beginReorder(row, handle);
+                        status.textContent = 'Gunakan anak panah atas atau bawah, kemudian tekan Enter untuk simpan.';
+                        return;
+                    }
+
+                    if (activeRow !== row) {
+                        return;
+                    }
+
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        restoreOrder(initialOrder);
+                        status.textContent = '';
+                        endReorder();
+                        return;
+                    }
+
+                    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        const orderedRows = rows();
+                        const currentIndex = orderedRows.indexOf(row);
+                        const targetIndex = event.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1;
+                        const target = orderedRows[targetIndex];
+
+                        if (!target) {
+                            return;
+                        }
+
+                        if (event.key === 'ArrowUp') {
+                            list.insertBefore(row, target);
+                        } else {
+                            list.insertBefore(row, target.nextSibling);
+                        }
+
+                        return;
+                    }
+
+                    if (isToggleKey) {
+                        event.preventDefault();
+                        const previousOrder = initialOrder;
+                        endReorder();
+                        saveOrder(previousOrder);
+                    }
+                });
+            });
+
+            list.addEventListener('dragover', (event) => {
+                if (!activeRow) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                moveRowToPointer(activeRow, event.clientY);
+            });
+
+            list.addEventListener('drop', (event) => {
+                if (!activeRow) {
+                    return;
+                }
+
+                event.preventDefault();
+                dropped = true;
+                const previousOrder = initialOrder;
+                endReorder();
+                saveOrder(previousOrder);
+            });
+        });
+    })();
+</script>
 @endsection

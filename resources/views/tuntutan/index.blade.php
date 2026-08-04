@@ -20,6 +20,8 @@
     :calendar-month="$calendarMonth"
     :calendar-weeks="$calendarWeeks"
     :selected-weeks="$selectedWeeks"
+    :selected-type="$selectedType"
+    :selected-status="$selectedStatus"
 />
 
 @forelse($claimsGrouped as $week => $claims)
@@ -42,7 +44,18 @@
         </header>
 
         <div class="table-wrapper claims-desktop-table">
-            <table class="custom-table claims-table">
+            <table class="custom-table claims-table {{ Auth::user()->hasRole('Superadmin') ? 'claims-table-with-actions' : '' }}">
+                <colgroup>
+                    <col class="claims-requester-column">
+                    <col class="claims-type-column">
+                    <col class="claims-details-column">
+                    <col class="claims-dates-column">
+                    <col class="claims-amount-column">
+                    <col class="claims-status-column">
+                    @role('Superadmin')
+                        <col class="claims-actions-column">
+                    @endrole
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Requester</th>
@@ -138,6 +151,19 @@
 
         document.querySelectorAll('[data-claim-modal-close]').forEach((button) => {
             button.addEventListener('click', () => button.closest('.claim-mobile-modal')?.close());
+        });
+
+        document.querySelectorAll('[data-attachment-open-link]').forEach((link) => {
+            link.addEventListener('click', () => {
+                if (link.dataset.attachmentOpening === 'true') {
+                    return;
+                }
+
+                link.dataset.attachmentOpening = 'true';
+                link.classList.add('is-opening');
+                link.querySelector('[data-attachment-open-label]')?.replaceChildren('Opening attachment...');
+                link.parentElement?.querySelector('[data-attachment-open-status]')?.replaceChildren('Opening attachment in a new tab.');
+            });
         });
     })();
 </script>
