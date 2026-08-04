@@ -88,7 +88,7 @@
                 @hasanyrole('Superadmin|Stocker')
                 <a href="{{ route('tuntutan.index') }}" class="nav-item {{ Request::routeIs('tuntutan.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-receipt"></i>
-                    <span>Tuntutan</span>
+                    <span>Purchase Request Form</span>
                 </a>
                 @endhasanyrole
                 

@@ -653,7 +653,7 @@ class FFGroceryTrackTest extends TestCase
             ->assertSeeInOrder([
                 'Inventori',
                 'Perlu Restok',
-                'Tuntutan',
+                'Purchase Request Form',
                 'Log Aktiviti',
                 'nav-divider',
                 'Kategori Editor',
