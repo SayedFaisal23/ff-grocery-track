@@ -18,7 +18,6 @@
 
 @forelse($claimsGrouped as $week => $claims)
     @php
-        $totalWeek = $claims->sum(fn ($claim) => $claim->total_item_amount ?? $claim->nilai_tuntutan);
         $startOfWeek = '-';
         $endOfWeek = '-';
 
@@ -33,10 +32,6 @@
             <div>
                 <h2>Week: {{ $week }}</h2>
                 <p>Dates: {{ $startOfWeek }} to {{ $endOfWeek }}</p>
-            </div>
-            <div class="claims-week-total">
-                <span>Total amount</span>
-                <strong>RM {{ number_format($totalWeek, 2) }}</strong>
             </div>
         </header>
 

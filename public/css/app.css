@@ -187,6 +187,8 @@ button, input, select, textarea {
     margin-left: 280px;
     padding: 2.5rem 3rem;
     min-height: 100vh;
+    container-name: main-content;
+    container-type: inline-size;
 }
 
 /* Page Header */
@@ -1541,25 +1543,10 @@ html[data-theme="light"] .badge-general {
     font-weight: 700;
 }
 
-.claims-week-header p,
-.claims-week-total span {
+.claims-week-header p {
     color: var(--text-muted);
     font-size: 0.85rem;
     font-weight: 500;
-}
-
-.claims-week-total {
-    text-align: right;
-}
-
-.claims-week-total span,
-.claims-week-total strong {
-    display: block;
-}
-
-.claims-week-total strong {
-    color: var(--color-success);
-    font-size: 1.5rem;
 }
 
 .claims-table {
@@ -1740,6 +1727,25 @@ html[data-theme="light"] .badge-general {
         padding: 0.75rem 0.6rem;
     }
 
+}
+
+@media (max-width: 480px) {
+    .preset-entry-form {
+        grid-template-columns: 1fr;
+    }
+
+    .preset-entry-form .btn {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .preset-group-card {
+        padding: 1rem;
+    }
+}
+
+/* The claims view responds to the usable content width, including the desktop sidebar. */
+@container main-content (max-width: 1320px) {
     .claims-week-card {
         padding: 1.25rem;
     }
@@ -1838,18 +1844,8 @@ html[data-theme="light"] .badge-general {
     }
 }
 
-@media (max-width: 480px) {
-    .preset-entry-form {
-        grid-template-columns: 1fr;
-    }
-
-    .preset-entry-form .btn {
-        justify-content: center;
-        width: 100%;
-    }
-
-    .claims-week-card,
-    .preset-group-card {
+@container main-content (max-width: 480px) {
+    .claims-week-card {
         padding: 1rem;
     }
 

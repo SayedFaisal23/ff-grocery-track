@@ -493,7 +493,8 @@ class FFGroceryTrackTest extends TestCase
             ->assertSeeText('Approved - receipt required')
             ->assertSeeText('Completed')
             ->assertSeeText('Rejected')
-            ->assertDontSeeText('Menunggu kelulusan');
+            ->assertDontSeeText('Menunggu kelulusan')
+            ->assertDontSeeText('Total amount');
     }
 
     public function test_admin_layout_uses_accessible_category_output_and_prioritised_navigation(): void
