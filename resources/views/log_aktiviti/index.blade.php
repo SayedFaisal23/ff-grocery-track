@@ -25,7 +25,7 @@
                 @forelse($logs as $log)
                 <tr>
                     <td>
-                        <span style="font-weight: 500; color: #fff;">{{ $log->created_at->format('d/m/Y H:i:s') }}</span>
+                        <span class="log-timestamp">{{ $log->created_at->format('d/m/Y H:i:s') }}</span>
                     </td>
                     <td>
                         @if($log->user)
@@ -36,7 +36,7 @@
                         @endif
                     </td>
                     <td>
-                        <span style="color: #fff;">{{ $log->aktiviti }}</span>
+                        <span class="log-activity-text">{{ $log->aktiviti }}</span>
                     </td>
                     <td>
                         @if($log->data_lama || $log->data_baru)

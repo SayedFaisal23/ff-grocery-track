@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LogAktiviti;
+use App\Models\Tuntutan;
 use App\Models\TuntutanPreset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -102,6 +103,10 @@ class TuntutanPresetController extends Controller
                 Rule::unique('tuntutan_presets', 'name')
                     ->where(fn ($query) => $query->where('type', $request->input('type')))
                     ->ignore($preset),
+                Rule::when(
+                    $request->input('type') === TuntutanPreset::TYPE_PAYMENT_METHOD,
+                    Rule::notIn([Tuntutan::OTHER_PAYMENT_METHOD])
+                ),
             ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);

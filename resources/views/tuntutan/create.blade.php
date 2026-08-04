@@ -125,11 +125,20 @@
                         @foreach($paymentMethods as $paymentMethod)
                             <option value="{{ $paymentMethod->name }}" @selected(old('payment_method') === $paymentMethod->name)>{{ $paymentMethod->name }}</option>
                         @endforeach
+                        <option value="{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}" @selected(old('payment_method') === \App\Models\Tuntutan::OTHER_PAYMENT_METHOD)>{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}</option>
                     </select>
                     @error('payment_method')
                         <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
                     @enderror
                 </div>
+            </div>
+
+            <div id="other-payment-method-group" class="form-group" hidden>
+                <label class="form-label" for="other_payment_method">Sila nyatakan kaedah pembayaran</label>
+                <input type="text" id="other_payment_method" name="other_payment_method" class="form-control @error('other_payment_method') is-invalid @enderror" value="{{ old('other_payment_method') }}" maxlength="255" placeholder="Example: e-wallet, cheque, or another method">
+                @error('other_payment_method')
+                    <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
+                @enderror
             </div>
 
             <div class="form-row">
@@ -238,6 +247,18 @@
     const promptSection = document.getElementById('section-prompt');
     const lunchAttachmentSection = document.getElementById('lunch-attachment-section');
     const attachmentInput = document.getElementById('attachment');
+    const paymentMethodSelect = document.getElementById('payment_method');
+    const otherPaymentMethodGroup = document.getElementById('other-payment-method-group');
+    const otherPaymentMethodInput = document.getElementById('other_payment_method');
+
+    function updateOtherPaymentMethodField() {
+        const isOtherPaymentMethod = paymentMethodSelect.value === @json(\App\Models\Tuntutan::OTHER_PAYMENT_METHOD);
+        const isRequestEnabled = !paymentMethodSelect.disabled;
+
+        otherPaymentMethodGroup.hidden = !isOtherPaymentMethod;
+        otherPaymentMethodInput.disabled = !isOtherPaymentMethod || !isRequestEnabled;
+        otherPaymentMethodInput.required = isOtherPaymentMethod && isRequestEnabled;
+    }
 
     function setSectionEnabled(section, enabled) {
         section.querySelectorAll('input, select, textarea').forEach((input) => {
@@ -257,9 +278,11 @@
         setSectionEnabled(requestSection, isRequest);
         setSectionEnabled(lunchSection, isLunch);
         attachmentInput.disabled = !isLunch;
+        updateOtherPaymentMethodField();
     }
 
     radios.forEach((radio) => radio.addEventListener('change', onTagChange));
+    paymentMethodSelect.addEventListener('change', updateOtherPaymentMethodField);
 
     const oldLunchData = {
         dates: @json(old('lunch_dates', [])),

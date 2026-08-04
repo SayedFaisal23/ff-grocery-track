@@ -25,15 +25,15 @@
     ];
 @endphp
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; align-items: start;">
+<div class="preset-groups-grid">
     @foreach($presetGroups as $type => $group)
-        <section class="card" style="margin-bottom: 0;">
+        <section class="card preset-group-card">
             <div style="margin-bottom: 1.25rem;">
                 <h2 style="font-size: 1.1rem; margin-bottom: 0.3rem;">{{ $group['title'] }}</h2>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">{{ $group['description'] }}</p>
             </div>
 
-            <form action="{{ route('tuntutan-preset.store') }}" method="POST" style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 1.25rem;">
+            <form action="{{ route('tuntutan-preset.store') }}" method="POST" class="preset-entry-form">
                 @csrf
                 <input type="hidden" name="type" value="{{ $type }}">
                 <div style="flex: 1;">
@@ -58,8 +58,8 @@
                 @enderror
             @endif
 
-            <div class="table-wrapper">
-                <table class="custom-table">
+            <div class="table-wrapper preset-table-wrapper">
+                <table class="custom-table preset-table">
                     <thead>
                         <tr>
                             <th>Pilihan</th>

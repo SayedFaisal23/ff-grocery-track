@@ -386,9 +386,149 @@ class FFGroceryTrackTest extends TestCase
             ->assertSee('Tujuan Pembelian')
             ->assertSee('Platform Pembelian')
             ->assertSee('Saluran / Kaedah Bayaran')
+            ->assertSee(Tuntutan::OTHER_PAYMENT_METHOD)
+            ->assertSee('id="other_payment_method"', false)
             ->assertSee('Butiran Lunch Mengikut Hari')
             ->assertSee('Pantry')
             ->assertDontSee('Food');
+    }
+
+    public function test_stocker_can_submit_an_other_payment_method_only_when_the_detail_is_provided(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Shopee',
+            'sort_order' => 1,
+        ]);
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
+            'name' => 'Bank Transfer',
+            'sort_order' => 1,
+        ]);
+
+        $validRequest = [
+            'tag' => 'Pantry',
+            'request_date' => '2026-07-20',
+            'item_specification' => 'Kitchen supplies',
+            'purchase_purpose' => 'Monthly pantry restock.',
+            'purchase_platform' => 'Shopee',
+            'total_item_amount' => 50.00,
+            'invoice_sent_to_account' => 1,
+            'date_receive' => '2026-07-22',
+        ];
+
+        $this->actingAs($stocker)
+            ->post('/tuntutan', array_merge($validRequest, [
+                'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+            ]))
+            ->assertSessionHasErrors('other_payment_method');
+
+        $this->actingAs($stocker)
+            ->post('/tuntutan', array_merge($validRequest, [
+                'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+                'other_payment_method' => 'Company e-wallet',
+            ]))
+            ->assertRedirect('/tuntutan');
+
+        $this->assertDatabaseHas('tuntutan', [
+            'user_id' => $stocker->id,
+            'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+            'other_payment_method' => 'Company e-wallet',
+        ]);
+
+        $this->actingAs($stocker)
+            ->get('/tuntutan')
+            ->assertOk()
+            ->assertSeeText('Lain-lain — Company e-wallet');
+    }
+
+    public function test_claim_statuses_and_responsive_claim_markup_are_clear_and_single_stage(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $baseClaim = [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'nama_item' => 'Request item',
+            'item_specification' => 'Request item',
+            'tag' => 'Pantry',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-07-20',
+            'request_date' => '2026-07-20',
+            'minggu_tuntutan' => '2026-W30',
+        ];
+
+        Tuntutan::create(array_merge($baseClaim, [
+            'status' => 'Pending',
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+            'reviewed_by' => $superadmin->id,
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+            'attachment' => 'attachments/receipt.pdf',
+            'reviewed_by' => $superadmin->id,
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'status' => 'Completed',
+            'approval_result' => 'Rejected',
+            'reviewed_by' => $superadmin->id,
+        ]));
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan')
+            ->assertOk()
+            ->assertSee('claims-desktop-table', false)
+            ->assertSee('claims-mobile-list', false)
+            ->assertSeeText('Submitted')
+            ->assertSeeText('Approved - receipt required')
+            ->assertSeeText('Completed')
+            ->assertSeeText('Rejected')
+            ->assertDontSeeText('Menunggu kelulusan');
+    }
+
+    public function test_admin_layout_uses_accessible_category_output_and_prioritised_navigation(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $item = Inventori::create([
+            'nama_item' => 'Light mode category item',
+            'kategori_id' => $this->kategori->id,
+            'jumlah_belum_dibuka' => 1,
+            'peratus_baki' => 100,
+            'had_ambang' => 1,
+        ]);
+
+        $this->actingAs($superadmin)
+            ->get('/inventori')
+            ->assertOk()
+            ->assertSee('inventory-item-name', false)
+            ->assertSee('--kategori-color: '.$item->kategoriPreset->warna, false)
+            ->assertSeeInOrder([
+                'Inventori',
+                'Perlu Restok',
+                'Tuntutan',
+                'Log Aktiviti',
+                'nav-divider',
+                'Pengurusan Kategori',
+                'Tetapan Tuntutan',
+                'Pengurusan Pengguna',
+            ], false);
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan-preset')
+            ->assertOk()
+            ->assertSee('preset-groups-grid', false)
+            ->assertSee('preset-entry-form', false);
     }
 
     public function test_purchase_request_rejects_invalid_amount_dates_and_presets(): void
@@ -653,6 +793,42 @@ class FFGroceryTrackTest extends TestCase
         $this->withToken('superadmin-purchase-token')
             ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Rejected'])
             ->assertStatus(409);
+    }
+
+    public function test_api_requires_a_detail_for_an_other_payment_method(): void
+    {
+        $stocker = User::factory()->create(['api_token' => 'stocker-other-payment-token']);
+        $stocker->assignRole('Stocker');
+        TuntutanPreset::create([
+            'type' => TuntutanPreset::TYPE_PURCHASE_PLATFORM,
+            'name' => 'Kedai Fizikal',
+            'sort_order' => 1,
+        ]);
+
+        $payload = [
+            'tag' => 'Pantry',
+            'request_date' => '2026-07-20',
+            'item_specification' => 'Office pantry stock',
+            'purchase_purpose' => 'Monthly order.',
+            'purchase_platform' => 'Kedai Fizikal',
+            'total_item_amount' => 40.00,
+            'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+            'invoice_sent_to_account' => true,
+            'date_receive' => '2026-07-22',
+        ];
+
+        $this->withToken('stocker-other-payment-token')
+            ->postJson('/api/tuntutan', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('other_payment_method');
+
+        $this->withToken('stocker-other-payment-token')
+            ->postJson('/api/tuntutan', array_merge($payload, [
+                'other_payment_method' => 'Petty cash reimbursement',
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('payment_method', Tuntutan::OTHER_PAYMENT_METHOD)
+            ->assertJsonPath('other_payment_method', 'Petty cash reimbursement');
     }
 
     public function test_claim_attachment_is_available_to_its_owner_and_superadmin_only(): void
@@ -1013,10 +1189,7 @@ class FFGroceryTrackTest extends TestCase
             ])
             ->assertRedirect('/inventori');
 
-        $this->assertDatabaseHas('inventori', [
-            'id' => $item->id,
-            'tarikh_luput' => '2026-08-01',
-        ]);
+        $this->assertSame('2026-08-01', $item->fresh()->tarikh_luput?->format('Y-m-d'));
     }
 
     public function test_inventori_index_supports_single_column_sorting(): void

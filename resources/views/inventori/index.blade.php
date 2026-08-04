@@ -147,7 +147,7 @@
                     </td>
                     <td data-label="Nama Item">
                         <div class="table-item-info">
-                            <div style="font-weight: 600; font-size: 1rem; color: #fff;">{{ $item->nama_item }}</div>
+                            <div class="inventory-item-name">{{ $item->nama_item }}</div>
                             @if($item->jenis || $item->capacity)
                                 <div style="font-size: 0.78rem; color: var(--text-dark); margin-top: 2px;">
                                     @if($item->jenis)<strong>{{ $item->jenis }}</strong>@endif
@@ -164,7 +164,7 @@
                         @if($item->jumlah_belum_dibuka == 0)
                             <span class="badge badge-danger inventory-empty-stock-badge"><strong>0</strong><span class="inventory-unit-label">unit</span></span>
                         @else
-                            <strong style="color: #fff;">{{ $item->jumlah_belum_dibuka }}</strong> <span class="inventory-unit-label">unit</span>
+                            <strong class="inventory-balance-value">{{ $item->jumlah_belum_dibuka }}</strong> <span class="inventory-unit-label">unit</span>
                         @endif
                     </td>
                     <td data-label="Tarikh Luput">
@@ -192,7 +192,7 @@
                                 <i class="fa-solid fa-sliders"></i>
                             </button>
                             <a href="{{ route('inventori.edit', $item->id) }}" class="btn btn-secondary btn-sm" title="Edit Barangan">
-                                <i class="fa-solid fa-pen"></i>
+                                <i class="fa-solid fa-pen-to-square"></i>
                             </a>
                             @hasanyrole('Superadmin|Stocker|Tracker')
                             <form action="{{ route('inventori.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Adakah anda pasti mahu memadam item ini?')" style="display:inline;">
@@ -320,7 +320,7 @@
 
         <div class="adjustment-modal-secondary-actions">
             <a id="modalEditLink" href="#" class="btn btn-secondary">
-                <i class="fa-solid fa-pen"></i>
+                <i class="fa-solid fa-pen-to-square"></i>
                 <span>Edit<br>Barangan</span>
             </a>
             @hasanyrole('Superadmin|Stocker|Tracker')

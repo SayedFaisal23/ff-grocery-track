@@ -33,7 +33,7 @@
     </script>
 
     <!-- CSS Utama -->
-    <link rel="stylesheet" href="/css/app.css?v=2.5">
+    <link rel="stylesheet" href="/css/app.css?v=2.6">
     
     <!-- FontAwesome (untuk ikon sampingan) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -93,6 +93,13 @@
                 @endhasanyrole
                 
                 @role('Superadmin')
+                <a href="{{ route('log_aktiviti.index') }}" class="nav-item {{ Request::routeIs('log_aktiviti.index') ? 'active' : '' }}">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Log Aktiviti</span>
+                </a>
+
+                <div class="nav-divider" role="presentation"></div>
+
                 <a href="{{ route('kategori.index') }}" class="nav-item {{ Request::routeIs('kategori.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-tags"></i>
                     <span>Pengurusan Kategori</span>
@@ -106,11 +113,6 @@
                 <a href="{{ route('pengguna.index') }}" class="nav-item {{ Request::routeIs('pengguna.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-users"></i>
                     <span>Pengurusan Pengguna</span>
-                </a>
-                
-                <a href="{{ route('log_aktiviti.index') }}" class="nav-item {{ Request::routeIs('log_aktiviti.index') ? 'active' : '' }}">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>Log Aktiviti</span>
                 </a>
                 @endrole
             </nav>

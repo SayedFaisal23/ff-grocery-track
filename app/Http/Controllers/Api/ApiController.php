@@ -358,6 +358,19 @@ class ApiController extends Controller
         }
 
         if ($tag === 'Pantry' || $tag === 'General') {
+            $isOtherPaymentMethod = $request->input('payment_method') === Tuntutan::OTHER_PAYMENT_METHOD;
+            $paymentMethodRules = ['required', 'string', 'max:255'];
+            $otherPaymentMethodRules = ['nullable', 'string', 'max:255'];
+
+            if ($isOtherPaymentMethod) {
+                $paymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD]);
+                $otherPaymentMethodRules[] = 'required';
+            } else {
+                $paymentMethodRules[] = Rule::exists('tuntutan_presets', 'name')
+                    ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD);
+                $otherPaymentMethodRules[] = 'prohibited';
+            }
+
             $validated = $request->validate([
                 'tag' => ['required', Rule::in(['Pantry', 'General'])],
                 'request_date' => ['required', 'date', 'before_or_equal:today'],
@@ -369,10 +382,8 @@ class ApiController extends Controller
                     Rule::exists('tuntutan_presets', 'name')->where('type', TuntutanPreset::TYPE_PURCHASE_PLATFORM),
                 ],
                 'total_item_amount' => ['required', 'numeric', 'min:0.01'],
-                'payment_method' => [
-                    'required', 'string', 'max:255',
-                    Rule::exists('tuntutan_presets', 'name')->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD),
-                ],
+                'payment_method' => $paymentMethodRules,
+                'other_payment_method' => $otherPaymentMethodRules,
                 'invoice_sent_to_account' => ['required', 'boolean'],
                 'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
                 'attachment' => ['prohibited'],
@@ -392,6 +403,7 @@ class ApiController extends Controller
                 'nilai_tuntutan' => $validated['total_item_amount'],
                 'total_item_amount' => $validated['total_item_amount'],
                 'payment_method' => $validated['payment_method'],
+                'other_payment_method' => $isOtherPaymentMethod ? trim($validated['other_payment_method']) : null,
                 'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
                 'request_date' => $validated['request_date'],
                 'date_receive' => $validated['date_receive'],
@@ -433,7 +445,7 @@ class ApiController extends Controller
 
             $oldData = $claim->toArray();
             $isApprovedPurchaseRequest = $validated['approval_result'] === 'Approved'
-                && $this->isPurchaseRequest($claim);
+                && $claim->isPurchaseRequest();
             $isHistoricalRequestWithAttachment = $isApprovedPurchaseRequest && $claim->attachment !== null;
 
             $claim->update([
@@ -482,7 +494,7 @@ class ApiController extends Controller
         $result = DB::transaction(function () use ($request, $tuntutan) {
             $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
 
-            if (! $this->canUploadAttachment($claim)) {
+            if (! $claim->canUploadAttachment()) {
                 return null;
             }
 
@@ -709,6 +721,10 @@ class ApiController extends Controller
                 Rule::unique('tuntutan_presets', 'name')
                     ->where(fn ($query) => $query->where('type', $request->input('type')))
                     ->ignore($preset),
+                Rule::when(
+                    $request->input('type') === TuntutanPreset::TYPE_PAYMENT_METHOD,
+                    Rule::notIn([Tuntutan::OTHER_PAYMENT_METHOD])
+                ),
             ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -717,19 +733,6 @@ class ApiController extends Controller
     private function weekFor(Carbon $date): string
     {
         return $date->format('o').'-W'.sprintf('%02d', $date->weekOfYear);
-    }
-
-    private function isPurchaseRequest(Tuntutan $claim): bool
-    {
-        return in_array($claim->tag, ['Pantry', 'General'], true);
-    }
-
-    private function canUploadAttachment(Tuntutan $claim): bool
-    {
-        return $this->isPurchaseRequest($claim)
-            && $claim->status === 'Pending'
-            && $claim->approval_result === 'Approved'
-            && $claim->attachment === null;
     }
 
     /**

@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Permohonan Pembelian')
+@section('title', 'Purchase Requests')
 
 @section('content')
 <div class="page-header">
     <div class="page-title">
-        <h1>Permohonan Pembelian</h1>
-        <p>Lihat dan urus permohonan Pantry, General, dan tuntutan Lunch</p>
+        <h1>Purchase Requests</h1>
+        <p>View and manage Pantry, General, and Lunch claims.</p>
     </div>
     @role('Stocker')
         <a href="{{ route('tuntutan.create') }}" class="btn btn-primary">
             <i class="fa-solid fa-file-circle-plus"></i>
-            <span>Hantar Permohonan</span>
+            <span>Submit a request</span>
         </a>
     @endrole
 </div>
@@ -28,158 +28,111 @@
             $endOfWeek = $weekDate->endOfWeek()->format('d/m/Y');
         }
     @endphp
-    <div class="card" style="margin-bottom: 2rem; border: 1px solid rgba(99, 102, 241, 0.2);">
-        <div class="card-header-flex" style="border-bottom-color: rgba(99, 102, 241, 0.2);">
+    <section class="card claims-week-card">
+        <header class="card-header-flex claims-week-header">
             <div>
-                <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff;">Minggu: {{ $week }}</h2>
-                <small style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">Tarikh: {{ $startOfWeek }} hingga {{ $endOfWeek }}</small>
+                <h2>Week: {{ $week }}</h2>
+                <p>Dates: {{ $startOfWeek }} to {{ $endOfWeek }}</p>
             </div>
-            <div style="text-align: right;">
-                <div style="font-size: 0.85rem; color: var(--text-muted);">Jumlah Amaun</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-success);">RM {{ number_format($totalWeek, 2) }}</div>
+            <div class="claims-week-total">
+                <span>Total amount</span>
+                <strong>RM {{ number_format($totalWeek, 2) }}</strong>
             </div>
-        </div>
+        </header>
 
-        <div class="table-wrapper">
-            <table class="custom-table">
+        <div class="table-wrapper claims-desktop-table">
+            <table class="custom-table claims-table">
                 <thead>
                     <tr>
-                        <th>Pemohon</th>
-                        <th>Jenis</th>
-                        <th>Butiran Permohonan</th>
-                        <th>Tarikh</th>
-                        <th>Amaun</th>
+                        <th>Requester</th>
+                        <th>Type</th>
+                        <th class="claim-details-header">Request details</th>
+                        <th>Dates</th>
+                        <th>Amount</th>
                         <th class="claim-status-cell">Status</th>
                         @role('Superadmin')
-                            <th style="text-align: right;">Tindakan Superadmin</th>
+                            <th class="claim-actions-cell">Superadmin action</th>
                         @endrole
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($claims as $claim)
                         @php
-                            $isPurchaseRequest = in_array($claim->tag, ['Pantry', 'General'], true);
                             $amount = $claim->total_item_amount ?? $claim->nilai_tuntutan;
                             $requestDate = $claim->request_date ?? $claim->tarikh_beli;
                         @endphp
                         <tr>
-                            <td data-label="Pemohon">
+                            <td>
                                 <div class="table-item-info">
                                     <strong>{{ $claim->requestor_name ?: $claim->user->name }}</strong>
-                                    <div style="font-size: 0.75rem; color: var(--text-dark);">{{ $claim->user->email }}</div>
+                                    <div class="table-secondary-text">{{ $claim->user->email }}</div>
                                 </div>
                             </td>
-                            <td data-label="Jenis">
-                                @if($claim->tag === 'Pantry')
-                                    <span class="badge badge-primary"><i class="fa-solid fa-boxes-stacked"></i> Pantry</span>
-                                @elseif($claim->tag === 'General')
-                                    <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;"><i class="fa-solid fa-folder-open"></i> General</span>
+                            <td><x-tuntutan-type-badge :claim="$claim" /></td>
+                            <td class="claim-details-cell"><x-tuntutan-details :claim="$claim" /></td>
+                            <td class="claim-dates-cell">
+                                @if($claim->isPurchaseRequest())
+                                    <div><span>Requested</span><strong>{{ $requestDate?->format('d/m/Y') ?? '-' }}</strong></div>
+                                    <div><span>Received</span><strong>{{ $claim->date_receive?->format('d/m/Y') ?? '-' }}</strong></div>
                                 @else
-                                    <span class="badge badge-success"><i class="fa-solid fa-utensils"></i> Lunch</span>
+                                    <strong>{{ $claim->tarikh_beli?->format('d/m/Y') ?? '-' }}</strong>
                                 @endif
                             </td>
-                            <td data-label="Butiran Permohonan">
-                                <strong>{{ $isPurchaseRequest ? ($claim->item_specification ?: $claim->nama_item) : $claim->nama_item }}</strong>
-                                @if($isPurchaseRequest)
-                                    <div style="margin-top: 6px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
-                                        <div><span style="color: var(--text-dark);">Tujuan:</span> {{ $claim->purchase_purpose }}</div>
-                                        @if($claim->invoice_no)<div><span style="color: var(--text-dark);">Invois:</span> {{ $claim->invoice_no }}</div>@endif
-                                        <div><span style="color: var(--text-dark);">Platform:</span> {{ $claim->purchase_platform }}</div>
-                                        <div><span style="color: var(--text-dark);">Bayaran:</span> {{ $claim->payment_method }}</div>
-                                        <div><span style="color: var(--text-dark);">Invois ke akaun:</span> {{ $claim->invoice_sent_to_account ? 'Ya' : 'Tidak' }}</div>
-                                    </div>
-                                @endif
-                                @if($claim->attachment)
-                                    <div style="margin-top: 7px;">
-                                        <a href="{{ route('tuntutan.attachment', $claim) }}" target="_blank" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.72rem;">
-                                            <i class="fa-solid fa-paperclip"></i> Dokumen sokongan
-                                        </a>
-                                    </div>
-                                @endif
-                                @if(
-                                    $isPurchaseRequest
-                                    && $claim->status === 'Pending'
-                                    && $claim->approval_result === 'Approved'
-                                    && $claim->attachment === null
-                                    && Auth::id() === $claim->user_id
-                                )
-                                    <form action="{{ route('tuntutan.attachment.store', $claim) }}" method="POST" enctype="multipart/form-data" style="margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border-color);">
-                                        @csrf
-                                        <label for="attachment-{{ $claim->id }}" style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 5px;">Lampiran diperlukan untuk melengkapkan permohonan</label>
-                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-                                            <input type="file" id="attachment-{{ $claim->id }}" name="attachment" accept=".jpg,.jpeg,.png,.pdf" required style="max-width: 220px; font-size: 0.78rem;">
-                                            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Muat Naik</button>
-                                        </div>
-                                        @error('attachment')
-                                            <div style="color: var(--color-danger); font-size: 0.78rem; margin-top: 5px;">{{ $message }}</div>
-                                        @enderror
-                                    </form>
-                                @endif
-                            </td>
-                            <td data-label="Tarikh">
-                                @if($isPurchaseRequest)
-                                    <div><span style="font-size: .75rem; color: var(--text-dark);">Mohon</span><br>{{ $requestDate->format('d/m/Y') }}</div>
-                                    <div style="margin-top: 6px;"><span style="font-size: .75rem; color: var(--text-dark);">Terima</span><br>{{ $claim->date_receive?->format('d/m/Y') ?? '-' }}</div>
-                                @else
-                                    {{ $claim->tarikh_beli->format('d/m/Y') }}
-                                @endif
-                            </td>
-                            <td data-label="Amaun" class="claim-value-cell"><strong>RM {{ number_format($amount, 2) }}</strong></td>
-                            <td data-label="Status" class="claim-status-cell">
-                                @if($claim->status === 'Pending')
-                                    <span class="badge badge-warning claim-status-badge">Pending</span>
-                                    @if($claim->approval_result === 'Approved')
-                                        <div style="margin-top: 5px;"><span class="badge badge-success">Approved</span></div>
-                                        <div style="font-size: 0.72rem; color: var(--text-dark); margin-top: 5px;">Menunggu lampiran pemohon</div>
-                                    @else
-                                        <div style="font-size: 0.72rem; color: var(--text-dark); margin-top: 5px;">Menunggu kelulusan</div>
-                                    @endif
-                                @else
-                                    <span class="badge badge-success claim-status-badge">Completed</span>
-                                    @if($claim->approval_result === 'Approved')
-                                        <div style="margin-top: 5px;"><span class="badge badge-success">Approved</span></div>
-                                    @elseif($claim->approval_result === 'Rejected')
-                                        <div style="margin-top: 5px;"><span class="badge badge-danger">Rejected</span></div>
-                                    @endif
-                                    @if($claim->reviewer)
-                                        <div style="font-size: 0.72rem; color: var(--text-dark); margin-top: 5px;">{{ $claim->reviewer->name }}</div>
-                                    @endif
-                                @endif
-                            </td>
+                            <td class="claim-value-cell"><strong>RM {{ number_format($amount, 2) }}</strong></td>
+                            <td class="claim-status-cell"><x-tuntutan-status :claim="$claim" /></td>
                             @role('Superadmin')
-                                <td data-label="Tindakan Superadmin" style="text-align: right;">
-                                    @if($claim->status === 'Pending' && $claim->approval_result === null)
-                                        <div style="display: inline-flex; gap: 8px;">
-                                            <form action="{{ route('tuntutan.status', $claim) }}" method="POST">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="approval_result" value="Approved">
-                                                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Lulus</button>
-                                            </form>
-                                            <form action="{{ route('tuntutan.status', $claim) }}" method="POST">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="approval_result" value="Rejected">
-                                                <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i> Tolak</button>
-                                            </form>
-                                        </div>
-                                    @elseif($claim->status === 'Pending')
-                                        <span style="font-size: 0.85rem; color: var(--text-dark);">Menunggu lampiran pemohon</span>
-                                    @else
-                                        <span style="font-size: 0.85rem; color: var(--text-dark);">Status dikunci</span>
-                                    @endif
-                                </td>
+                                <td class="claim-actions-cell"><x-tuntutan-actions :claim="$claim" /></td>
                             @endrole
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
-    </div>
+
+        <div class="claims-mobile-list">
+            @foreach($claims as $claim)
+                @php
+                    $amount = $claim->total_item_amount ?? $claim->nilai_tuntutan;
+                    $requestDate = $claim->request_date ?? $claim->tarikh_beli;
+                @endphp
+                <article class="claim-mobile-card">
+                    <header class="claim-mobile-card-header">
+                        <div>
+                            <span class="claim-mobile-requester">{{ $claim->requestor_name ?: $claim->user->name }}</span>
+                            <span class="claim-mobile-email">{{ $claim->user->email }}</span>
+                        </div>
+                        <x-tuntutan-type-badge :claim="$claim" />
+                    </header>
+
+                    <x-tuntutan-details :claim="$claim" />
+
+                    <div class="claim-mobile-meta">
+                        <div>
+                            <span>Amount</span>
+                            <strong>RM {{ number_format($amount, 2) }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ $claim->isPurchaseRequest() ? 'Requested' : 'Claim date' }}</span>
+                            <strong>{{ $requestDate?->format('d/m/Y') ?? '-' }}</strong>
+                        </div>
+                        @if($claim->isPurchaseRequest())
+                            <div>
+                                <span>Received</span>
+                                <strong>{{ $claim->date_receive?->format('d/m/Y') ?? '-' }}</strong>
+                            </div>
+                        @endif
+                    </div>
+
+                    <x-tuntutan-status :claim="$claim" />
+                    <x-tuntutan-actions :claim="$claim" />
+                </article>
+            @endforeach
+        </div>
+    </section>
 @empty
-    <div class="card" style="text-align: center; color: var(--text-muted); padding: 4rem;">
-        <i class="fa-solid fa-file-circle-plus" style="font-size: 4rem; color: var(--text-dark); margin-bottom: 1.5rem; display: block;"></i>
-        Tiada permohonan pembelian dijumpai.
+    <div class="card claims-empty-state">
+        <i class="fa-solid fa-file-circle-plus"></i>
+        No purchase requests found.
     </div>
 @endforelse
 @endsection
