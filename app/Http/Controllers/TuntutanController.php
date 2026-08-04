@@ -27,7 +27,11 @@ class TuntutanController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $claims = $query->orderByDesc('tarikh_beli')->get();
+        $claims = $query
+            ->orderByDesc('tarikh_beli')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
         $claimsGrouped = $claims->groupBy('minggu_tuntutan');
 
         return view('tuntutan.index', compact('claimsGrouped'));

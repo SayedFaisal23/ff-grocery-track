@@ -64,7 +64,7 @@
                                 </div>
                             </td>
                             <td><x-tuntutan-type-badge :claim="$claim" /></td>
-                            <td class="claim-details-cell"><x-tuntutan-details :claim="$claim" /></td>
+                            <td class="claim-details-cell"><x-tuntutan-details :claim="$claim" context="desktop" /></td>
                             <td class="claim-dates-cell">
                                 @if($claim->isPurchaseRequest())
                                     <div><span>Requested</span><strong>{{ $requestDate?->format('d/m/Y') ?? '-' }}</strong></div>
@@ -86,40 +86,10 @@
 
         <div class="claims-mobile-list">
             @foreach($claims as $claim)
-                @php
-                    $amount = $claim->total_item_amount ?? $claim->nilai_tuntutan;
-                    $requestDate = $claim->request_date ?? $claim->tarikh_beli;
-                @endphp
+                @php($modalId = "claim-mobile-modal-{$claim->id}")
                 <article class="claim-mobile-card">
-                    <header class="claim-mobile-card-header">
-                        <div>
-                            <span class="claim-mobile-requester">{{ $claim->requestor_name ?: $claim->user->name }}</span>
-                            <span class="claim-mobile-email">{{ $claim->user->email }}</span>
-                        </div>
-                        <x-tuntutan-type-badge :claim="$claim" />
-                    </header>
-
-                    <x-tuntutan-details :claim="$claim" />
-
-                    <div class="claim-mobile-meta">
-                        <div>
-                            <span>Amount</span>
-                            <strong>RM {{ number_format($amount, 2) }}</strong>
-                        </div>
-                        <div>
-                            <span>{{ $claim->isPurchaseRequest() ? 'Requested' : 'Claim date' }}</span>
-                            <strong>{{ $requestDate?->format('d/m/Y') ?? '-' }}</strong>
-                        </div>
-                        @if($claim->isPurchaseRequest())
-                            <div>
-                                <span>Received</span>
-                                <strong>{{ $claim->date_receive?->format('d/m/Y') ?? '-' }}</strong>
-                            </div>
-                        @endif
-                    </div>
-
-                    <x-tuntutan-status :claim="$claim" />
-                    <x-tuntutan-actions :claim="$claim" />
+                    <x-tuntutan-mobile-summary :claim="$claim" :modal-id="$modalId" />
+                    <x-tuntutan-mobile-dialog :claim="$claim" :modal-id="$modalId" />
                 </article>
             @endforeach
         </div>
@@ -130,4 +100,39 @@
         No purchase requests found.
     </div>
 @endforelse
+
+<script>
+    (() => {
+        document.querySelectorAll('[data-claim-modal-open]').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                const dialog = document.getElementById(trigger.dataset.claimModalOpen);
+
+                if (!(dialog instanceof HTMLDialogElement) || dialog.open) {
+                    return;
+                }
+
+                dialog.claimModalTrigger = trigger;
+                dialog.showModal();
+                dialog.querySelector('[data-claim-modal-close]')?.focus();
+            });
+        });
+
+        document.querySelectorAll('.claim-mobile-modal').forEach((dialog) => {
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+
+            dialog.addEventListener('close', () => {
+                dialog.claimModalTrigger?.focus();
+                dialog.claimModalTrigger = null;
+            });
+        });
+
+        document.querySelectorAll('[data-claim-modal-close]').forEach((button) => {
+            button.addEventListener('click', () => button.closest('.claim-mobile-modal')?.close());
+        });
+    })();
+</script>
 @endsection

@@ -1705,6 +1705,82 @@ html[data-theme="light"] .badge-general {
     margin-bottom: 1.5rem;
 }
 
+.claim-mobile-modal {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-main);
+}
+
+.claim-mobile-modal[open] {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.claim-mobile-modal::backdrop {
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(3px);
+}
+
+.claim-mobile-modal-card {
+    width: min(42rem, 100%);
+    max-height: calc(100dvh - 2rem);
+    margin: 0;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+}
+
+.claim-mobile-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.claim-mobile-dialog-kicker {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.claim-mobile-modal-close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-hover);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.claim-mobile-modal-close:hover,
+.claim-mobile-modal-close:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.claim-mobile-modal-type {
+    margin: 0.9rem 0;
+}
+
 @media (max-width: 1180px) and (min-width: 993px) {
     .preset-groups-grid {
         grid-template-columns: 1fr;
@@ -1763,15 +1839,88 @@ html[data-theme="light"] .badge-general {
         background: var(--bg-surface-hover);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 1rem;
+        overflow: hidden;
     }
 
-    .claim-mobile-card-header {
+    .claim-mobile-summary {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        width: 100%;
+        padding: 1rem;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .claim-mobile-summary:hover,
+    .claim-mobile-summary:focus-visible {
+        background: rgba(99, 102, 241, 0.08);
+    }
+
+    .claim-mobile-summary:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: -2px;
+    }
+
+    .claim-mobile-summary-main {
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem;
-        margin-bottom: 0.85rem;
+        grid-column: 1;
+        grid-row: 1;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.45rem;
+        min-width: 0;
+    }
+
+    .claim-mobile-item-name {
+        color: var(--text-main);
+        font-size: 0.95rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+
+    .claim-mobile-summary-submitter {
+        display: block;
+        grid-column: 1;
+        grid-row: 2;
+        min-width: 0;
+        margin-top: 0.35rem;
+    }
+
+    .claim-mobile-summary-submitter > span {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+    }
+
+    .claim-mobile-summary-submitter > strong {
+        color: var(--text-main);
+        display: block;
+        font-size: 0.8rem;
+        overflow-wrap: anywhere;
+    }
+
+    .claim-mobile-summary > .claim-status {
+        display: block;
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        min-width: 0;
+        padding: 0 0.6rem;
+        text-align: center;
+    }
+
+    .claim-mobile-summary .claim-status-badge {
+        white-space: normal;
+    }
+
+    .claim-mobile-summary > i {
+        color: var(--text-muted);
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        font-size: 0.8rem;
     }
 
     .claim-mobile-requester,
@@ -1825,18 +1974,6 @@ html[data-theme="light"] .badge-general {
         overflow-wrap: anywhere;
     }
 
-    .claim-mobile-card > .claim-status {
-        border-top: 1px solid var(--border-color);
-        margin-top: 0.9rem;
-        padding-top: 0.8rem;
-    }
-
-    .claim-mobile-card > .claim-actions {
-        border-top: 1px solid var(--border-color);
-        margin-top: 0.8rem;
-        padding-top: 0.8rem;
-    }
-
     .claim-status-cell .claim-status,
     .claim-actions-cell .claim-actions {
         justify-content: flex-start;
@@ -1851,6 +1988,26 @@ html[data-theme="light"] .badge-general {
 
     .claim-mobile-meta {
         grid-template-columns: 1fr;
+    }
+
+    .claim-mobile-summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto;
+    }
+
+    .claim-mobile-summary > .claim-status {
+        grid-column: 1;
+        grid-row: 3;
+        justify-self: start;
+        padding: 0;
+        margin-top: 0.6rem;
+        text-align: left;
+    }
+
+    .claim-mobile-summary > i {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        margin-left: 0.75rem;
     }
 
     .claim-attachment-controls {

@@ -489,12 +489,50 @@ class FFGroceryTrackTest extends TestCase
             ->assertOk()
             ->assertSee('claims-desktop-table', false)
             ->assertSee('claims-mobile-list', false)
+            ->assertSee('claim-mobile-summary', false)
+            ->assertSee('data-claim-modal-open', false)
+            ->assertSee('claim-mobile-modal', false)
             ->assertSeeText('Submitted')
             ->assertSeeText('Approved - receipt required')
             ->assertSeeText('Completed')
             ->assertSeeText('Rejected')
             ->assertDontSeeText('Menunggu kelulusan')
             ->assertDontSeeText('Total amount');
+    }
+
+    public function test_claims_within_a_week_are_shown_newest_first(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $claim = [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'tag' => 'Lunch',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'minggu_tuntutan' => '2026-W30',
+            'status' => 'Pending',
+        ];
+
+        Tuntutan::create(array_merge($claim, [
+            'nama_item' => 'Earlier weekly claim',
+            'tarikh_beli' => '2026-07-20',
+        ]));
+        Tuntutan::create(array_merge($claim, [
+            'nama_item' => 'Newest weekly claim',
+            'tarikh_beli' => '2026-07-24',
+        ]));
+
+        $this->actingAs($superadmin)
+            ->get('/tuntutan')
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Newest weekly claim',
+                'Earlier weekly claim',
+            ], false);
     }
 
     public function test_admin_layout_uses_accessible_category_output_and_prioritised_navigation(): void

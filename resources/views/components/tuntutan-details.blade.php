@@ -1,8 +1,9 @@
-@props(['claim'])
+@props(['claim', 'context' => 'default'])
 
 @php
     $isPurchaseRequest = $claim->isPurchaseRequest();
     $itemName = $isPurchaseRequest ? ($claim->item_specification ?: $claim->nama_item) : $claim->nama_item;
+    $attachmentInputId = "attachment-{$context}-{$claim->id}";
 @endphp
 
 <div class="claim-details">
@@ -46,9 +47,9 @@
     @if($claim->canUploadAttachment() && Auth::id() === $claim->user_id)
         <form action="{{ route('tuntutan.attachment.store', $claim) }}" method="POST" enctype="multipart/form-data" class="claim-attachment-upload">
             @csrf
-            <label for="attachment-{{ $claim->id }}">Receipt required to complete this claim</label>
+            <label for="{{ $attachmentInputId }}">Receipt required to complete this claim</label>
             <div class="claim-attachment-controls">
-                <input type="file" id="attachment-{{ $claim->id }}" name="attachment" accept=".jpg,.jpeg,.png,.pdf" required>
+                <input type="file" id="{{ $attachmentInputId }}" name="attachment" accept=".jpg,.jpeg,.png,.pdf" required>
                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Upload receipt</button>
             </div>
             @error('attachment')
