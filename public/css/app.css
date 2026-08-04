@@ -1781,6 +1781,230 @@ html[data-theme="light"] .badge-general {
     margin: 0.9rem 0;
 }
 
+.claims-week-filter {
+    margin-bottom: 2rem;
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.claims-week-filter-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.claims-week-filter-header h2 {
+    color: var(--text-main);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.claims-week-filter-header h2 i {
+    color: var(--color-primary);
+    margin-right: 0.4rem;
+}
+
+.claims-week-filter-header p {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-top: 0.25rem;
+}
+
+.claims-week-filter-clear {
+    flex: 0 0 auto;
+}
+
+.claims-selected-weeks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.claims-selected-week-form {
+    margin: 0;
+}
+
+.claims-selected-week {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid rgba(99, 102, 241, 0.26);
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.claims-selected-week:hover,
+.claims-selected-week:focus-visible {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.claims-calendar-disclosure {
+    margin-top: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-hover);
+}
+
+.claims-calendar-disclosure summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    list-style: none;
+}
+
+.claims-calendar-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.claims-calendar-disclosure summary > span > i {
+    color: var(--color-primary);
+    margin-right: 0.45rem;
+}
+
+.claims-calendar-disclosure summary:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.claims-calendar-disclosure[open] summary {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.claims-calendar-disclosure:not([open]) .claims-calendar-panel {
+    display: none;
+}
+
+.claims-calendar-disclosure-icon {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.claims-calendar-disclosure[open] .claims-calendar-disclosure-icon {
+    transform: rotate(180deg);
+}
+
+.claims-calendar-panel {
+    padding: 0 1rem 1rem;
+}
+
+.claims-calendar-navigation {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0 0.75rem;
+}
+
+.claims-calendar-navigation strong {
+    color: var(--text-main);
+    font-size: 0.92rem;
+    text-align: center;
+}
+
+.claims-calendar {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.claims-calendar-weekdays,
+.claims-calendar-week {
+    display: grid;
+    grid-template-columns: 4rem repeat(7, minmax(0, 1fr));
+}
+
+.claims-calendar-weekdays {
+    background: var(--bg-surface-hover);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.claims-calendar-weekdays span {
+    padding: 0.55rem 0.25rem;
+}
+
+.claims-calendar-week-form {
+    margin: 0;
+}
+
+.claims-calendar-week-form + .claims-calendar-week-form {
+    border-top: 1px solid var(--border-color);
+}
+
+.claims-calendar-week {
+    align-items: stretch;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-main);
+    cursor: pointer;
+    text-align: center;
+}
+
+.claims-calendar-week:hover,
+.claims-calendar-week:focus-visible {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.claims-calendar-week:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.claims-calendar-week.is-selected {
+    background: rgba(99, 102, 241, 0.16);
+}
+
+.claims-calendar-week-number,
+.claims-calendar-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.7rem;
+    padding: 0.4rem 0.25rem;
+}
+
+.claims-calendar-week-number {
+    background: rgba(99, 102, 241, 0.06);
+    color: var(--color-primary);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.claims-calendar-day {
+    border-left: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.claims-calendar-day.is-outside {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.claims-calendar-week-range {
+    display: none;
+}
+
 @media (max-width: 1180px) and (min-width: 993px) {
     .preset-groups-grid {
         grid-template-columns: 1fr;
@@ -2017,5 +2241,57 @@ html[data-theme="light"] .badge-general {
 
     .claim-attachment-controls input[type="file"] {
         max-width: none;
+    }
+}
+
+@container main-content (max-width: 768px) {
+    .claims-week-filter {
+        padding: 1.25rem;
+    }
+
+    .claims-week-filter-header {
+        flex-direction: column;
+    }
+
+    .claims-week-filter-clear {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .claims-calendar-disclosure summary {
+        padding: 0.8rem 0.85rem;
+    }
+
+    .claims-calendar-panel {
+        padding: 0 0.85rem 0.85rem;
+    }
+
+    .claims-calendar-weekdays {
+        display: none;
+    }
+
+    .claims-calendar-week {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.7rem 0.85rem;
+        text-align: left;
+    }
+
+    .claims-calendar-week-number {
+        min-height: 0;
+        padding: 0;
+        background: transparent;
+    }
+
+    .claims-calendar-week-range {
+        display: block;
+        color: var(--text-main);
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    .claims-calendar-day {
+        display: none;
     }
 }

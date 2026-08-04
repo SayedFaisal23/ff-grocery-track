@@ -16,6 +16,12 @@
     @endrole
 </div>
 
+<x-tuntutan-week-filter
+    :calendar-month="$calendarMonth"
+    :calendar-weeks="$calendarWeeks"
+    :selected-weeks="$selectedWeeks"
+/>
+
 @forelse($claimsGrouped as $week => $claims)
     @php
         $startOfWeek = '-';

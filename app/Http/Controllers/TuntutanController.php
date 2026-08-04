@@ -18,13 +18,19 @@ class TuntutanController extends Controller
     /**
      * Paparkan senarai permohonan mengikut minggu.
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $query = Tuntutan::query()->with(['user', 'reviewer']);
+        $selectedWeeks = $this->selectedWeeks($request);
+        $calendarMonth = $this->calendarMonth($request);
 
         if ($user->hasRole('Stocker')) {
             $query->where('user_id', $user->id);
+        }
+
+        if ($selectedWeeks !== []) {
+            $query->whereIn('minggu_tuntutan', $selectedWeeks);
         }
 
         $claims = $query
@@ -33,8 +39,14 @@ class TuntutanController extends Controller
             ->orderByDesc('id')
             ->get();
         $claimsGrouped = $claims->groupBy('minggu_tuntutan');
+        $calendarWeeks = $this->calendarWeeks($calendarMonth);
 
-        return view('tuntutan.index', compact('claimsGrouped'));
+        return view('tuntutan.index', compact(
+            'calendarMonth',
+            'calendarWeeks',
+            'claimsGrouped',
+            'selectedWeeks',
+        ));
     }
 
     /**
@@ -403,5 +415,97 @@ class TuntutanController extends Controller
     private function weekFor(Carbon $date): string
     {
         return $date->format('o').'-W'.sprintf('%02d', $date->weekOfYear);
+    }
+
+    /**
+     * Return valid, unique ISO-week filters from the request query string.
+     *
+     * @return array<int, string>
+     */
+    private function selectedWeeks(Request $request): array
+    {
+        $weeks = $request->query('weeks', []);
+
+        if (! is_array($weeks)) {
+            return [];
+        }
+
+        return collect($weeks)
+            ->filter(fn ($week) => is_string($week))
+            ->map(fn (string $week) => trim($week))
+            ->filter(fn (string $week) => $this->isValidIsoWeek($week))
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+    }
+
+    private function isValidIsoWeek(string $week): bool
+    {
+        if (preg_match('/^(\d{4})-W(\d{2})$/', $week, $matches) !== 1) {
+            return false;
+        }
+
+        $year = (int) $matches[1];
+        $weekNumber = (int) $matches[2];
+
+        if ($year < 1 || $weekNumber < 1 || $weekNumber > 53) {
+            return false;
+        }
+
+        return Carbon::create($year, 1, 4)
+            ->setISODate($year, $weekNumber)
+            ->format('o-\\WW') === $week;
+    }
+
+    private function calendarMonth(Request $request): Carbon
+    {
+        $month = $request->query('month');
+
+        if (! is_string($month) || preg_match('/^(\d{4})-(\d{2})$/', $month, $matches) !== 1) {
+            return now()->startOfMonth();
+        }
+
+        $year = (int) $matches[1];
+        $monthNumber = (int) $matches[2];
+
+        if ($year < 1 || $monthNumber < 1 || $monthNumber > 12) {
+            return now()->startOfMonth();
+        }
+
+        return Carbon::create($year, $monthNumber, 1)->startOfMonth();
+    }
+
+    /**
+     * Build complete Monday-Sunday rows for the month displayed in the filter.
+     *
+     * @return array<int, array{value: string, number: int, start: Carbon, end: Carbon, days: array<int, Carbon>}>
+     */
+    private function calendarWeeks(Carbon $month): array
+    {
+        $calendarWeeks = [];
+        $cursor = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $lastDay = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+
+        while ($cursor->lte($lastDay)) {
+            $weekStart = $cursor->copy();
+            $days = [];
+
+            for ($offset = 0; $offset < 7; $offset++) {
+                $days[] = $weekStart->copy()->addDays($offset);
+            }
+
+            $calendarWeeks[] = [
+                'value' => $weekStart->format('o-\\WW'),
+                'number' => $weekStart->isoWeek,
+                'start' => $weekStart,
+                'end' => $weekStart->copy()->addDays(6),
+                'days' => $days,
+            ];
+
+            $cursor->addWeek();
+        }
+
+        return $calendarWeeks;
     }
 }

@@ -33,7 +33,7 @@
     </script>
 
     <!-- CSS Utama -->
-    <link rel="stylesheet" href="/css/app.css?v=2.9">
+    <link rel="stylesheet" href="/css/app.css?v=2.12">
     
     <!-- FontAwesome (untuk ikon sampingan) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -102,17 +102,17 @@
 
                 <a href="{{ route('kategori.index') }}" class="nav-item {{ Request::routeIs('kategori.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-tags"></i>
-                    <span>Pengurusan Kategori</span>
+                    <span>Kategori Editor</span>
                 </a>
 
                 <a href="{{ route('tuntutan-preset.index') }}" class="nav-item {{ Request::routeIs('tuntutan-preset.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-sliders"></i>
-                    <span>Tetapan Tuntutan</span>
+                    <span>Purchase Request Form Editor</span>
                 </a>
 
                 <a href="{{ route('pengguna.index') }}" class="nav-item {{ Request::routeIs('pengguna.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-users"></i>
-                    <span>Pengurusan Pengguna</span>
+                    <span>User Management</span>
                 </a>
                 @endrole
             </nav>

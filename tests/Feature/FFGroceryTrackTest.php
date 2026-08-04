@@ -535,6 +535,104 @@ class FFGroceryTrackTest extends TestCase
             ], false);
     }
 
+    public function test_purchase_request_calendar_filters_multiple_weeks_and_ignores_invalid_values(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+
+        $claim = [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'tag' => 'Lunch',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'status' => 'Pending',
+        ];
+
+        Tuntutan::create(array_merge($claim, [
+            'nama_item' => 'Week thirty claim',
+            'tarikh_beli' => '2026-07-20',
+            'minggu_tuntutan' => '2026-W30',
+        ]));
+        Tuntutan::create(array_merge($claim, [
+            'nama_item' => 'Week thirty-one claim',
+            'tarikh_beli' => '2026-07-27',
+            'minggu_tuntutan' => '2026-W31',
+        ]));
+        Tuntutan::create(array_merge($claim, [
+            'nama_item' => 'Week thirty-two claim',
+            'tarikh_beli' => '2026-08-03',
+            'minggu_tuntutan' => '2026-W32',
+        ]));
+
+        $response = $this->actingAs($superadmin)->get('/tuntutan?'.http_build_query([
+            'month' => '2026-08',
+            'weeks' => ['2026-W30', '2026-W32', '2026-W30', 'not-a-week', '2026-W54'],
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertSee('claims-week-filter', false)
+            ->assertSee('claims-calendar-disclosure', false)
+            ->assertDontSee('<details class="claims-calendar-disclosure" open', false)
+            ->assertSee('claims-calendar-week', false)
+            ->assertSee('aria-pressed="true"', false)
+            ->assertSeeText('Week thirty claim')
+            ->assertSeeText('Week thirty-two claim')
+            ->assertDontSeeText('Week thirty-one claim')
+            ->assertSeeInOrder([
+                'Week thirty-two claim',
+                'Week thirty claim',
+            ], false);
+
+        $this->assertSame(
+            1,
+            substr_count($response->getContent(), 'aria-label="Remove 2026-W30 from the filter"'),
+        );
+    }
+
+    public function test_purchase_request_week_filter_keeps_stocker_claims_scoped_to_their_account(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $anotherStocker = User::factory()->create();
+        $anotherStocker->assignRole('Stocker');
+
+        Tuntutan::create([
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'nama_item' => 'My filtered claim',
+            'tag' => 'Lunch',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-08-03',
+            'minggu_tuntutan' => '2026-W32',
+            'status' => 'Pending',
+        ]);
+        Tuntutan::create([
+            'user_id' => $anotherStocker->id,
+            'requestor_name' => $anotherStocker->name,
+            'nama_item' => 'Another user filtered claim',
+            'tag' => 'Lunch',
+            'nilai_tuntutan' => 10.00,
+            'total_item_amount' => 10.00,
+            'tarikh_beli' => '2026-08-03',
+            'minggu_tuntutan' => '2026-W32',
+            'status' => 'Pending',
+        ]);
+
+        $this->actingAs($stocker)
+            ->get('/tuntutan?'.http_build_query([
+                'month' => '2026-08',
+                'weeks' => ['2026-W32'],
+            ]))
+            ->assertOk()
+            ->assertSeeText('My filtered claim')
+            ->assertDontSeeText('Another user filtered claim');
+    }
+
     public function test_admin_layout_uses_accessible_category_output_and_prioritised_navigation(): void
     {
         $superadmin = User::factory()->create();
@@ -558,9 +656,9 @@ class FFGroceryTrackTest extends TestCase
                 'Tuntutan',
                 'Log Aktiviti',
                 'nav-divider',
-                'Pengurusan Kategori',
-                'Tetapan Tuntutan',
-                'Pengurusan Pengguna',
+                'Kategori Editor',
+                'Purchase Request Form Editor',
+                'User Management',
             ], false);
 
         $this->actingAs($superadmin)
