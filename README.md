@@ -30,8 +30,9 @@ All application pages other than the login page require authentication.
 
 1. A Stocker submits a Pantry, General, or weekly Lunch request.
 2. A Superadmin approves or rejects the request.
-3. An approved Pantry or General request remains pending until its owner uploads the purchase receipt.
-4. Uploading the receipt completes the request. The first Superadmin to open a completed purchase receipt is recorded in the activity log.
+3. A Pantry or General request may include one optional quotation/invoice supporting document before approval.
+4. An approved Pantry or General request remains pending until its owner uploads the purchase receipt.
+5. Uploading the receipt completes the request. The first Superadmin to open a completed purchase receipt is recorded in the activity log.
 
 Lunch requests are submitted as daily entries for a selected week and are completed when the Superadmin records the decision.
 
@@ -166,11 +167,11 @@ The application exposes a token-authenticated API under `/api`, intended for the
 | --- | --- |
 | Authentication | `POST /api/login`, `POST /api/logout`, `GET /api/user` |
 | Inventory | `/api/inventori`, `/api/inventori/restok`, `/api/kategori` |
-| Requests | `/api/tuntutan`, `/api/tuntutan/{id}/status`, `/api/tuntutan/{id}/lampiran` |
+| Requests | `/api/tuntutan`, `/api/tuntutan/{id}/status`, `POST /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/supporting-document`, `POST /api/tuntutan/{id}/detail-reviewed` |
 | Presets | `/api/tuntutan-preset` |
 | Superadmin | `/api/pengguna`, `/api/log-aktiviti` |
 
-Role checks are enforced by the application. See [routes/api.php](routes/api.php) and the API controller for the exact HTTP methods, validation rules, request fields, and response payloads.
+Use multipart form data to include the optional `purchase_attachment` (JPG, JPEG, PNG, or PDF; maximum 5 MB) when submitting a Pantry or General request. The final `attachment` receipt remains a separate upload after approval. Claim responses include `documents` metadata plus availability and authorised endpoint URLs for each document. Role checks are enforced by the application. See [routes/api.php](routes/api.php) and the API controller for the exact HTTP methods, validation rules, and response payloads.
 
 ## Testing
 

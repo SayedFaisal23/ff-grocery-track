@@ -122,6 +122,94 @@
 
 <script>
     (() => {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const desktopReviewedClaims = new Set();
+        const claimReviewRequestVersions = new Map();
+
+        const malaysiaDateTime = (value) => {
+            if (typeof value !== 'string' || value === '') {
+                return null;
+            }
+
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return value;
+            }
+
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kuala_Lumpur',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23',
+            }).format(date);
+        };
+
+        const reviewTimestampFromResponse = (payload) => {
+            const formattedTimestamp = payload?.claim_details_viewed_at_display
+                ?? payload?.formatted_claim_details_viewed_at
+                ?? payload?.claim_details_viewed_at_formatted;
+
+            return typeof formattedTimestamp === 'string'
+                ? formattedTimestamp
+                : malaysiaDateTime(payload?.claim_details_viewed_at);
+        };
+
+        const updateClaimReviewTimestamp = (claimId, timestamp) => {
+            if (!timestamp) {
+                return;
+            }
+
+            document.querySelectorAll('[data-claim-audit-for]').forEach((audit) => {
+                if (audit.dataset.claimAuditFor !== claimId) {
+                    return;
+                }
+
+                audit.querySelectorAll('[data-claim-details-viewed-at]').forEach((label) => {
+                    label.textContent = timestamp;
+                });
+            });
+        };
+
+        const trackClaimDetailsReview = (details) => {
+            const url = details?.dataset.claimReviewUrl;
+            const claimId = details?.dataset.claimId;
+
+            if (!url || !claimId || !csrfToken) {
+                return;
+            }
+
+            const requestVersion = (claimReviewRequestVersions.get(claimId) ?? 0) + 1;
+            claimReviewRequestVersions.set(claimId, requestVersion);
+
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('Unable to record claim review.');
+                    }
+
+                    return response.status === 204 ? null : response.json();
+                })
+                .then((payload) => {
+                    if (claimReviewRequestVersions.get(claimId) === requestVersion) {
+                        updateClaimReviewTimestamp(claimId, reviewTimestampFromResponse(payload));
+                    }
+                })
+                .catch(() => {
+                    // Review tracking must never block use of the claim details UI.
+                });
+        };
+
         document.querySelectorAll('[data-claim-modal-open]').forEach((trigger) => {
             trigger.addEventListener('click', () => {
                 const dialog = document.getElementById(trigger.dataset.claimModalOpen);
@@ -133,6 +221,7 @@
                 dialog.claimModalTrigger = trigger;
                 dialog.showModal();
                 dialog.querySelector('[data-claim-modal-close]')?.focus();
+                trackClaimDetailsReview(dialog.querySelector('[data-claim-details-review]'));
             });
         });
 
@@ -154,17 +243,80 @@
         });
 
         document.querySelectorAll('[data-attachment-open-link]').forEach((link) => {
-            link.addEventListener('click', () => {
-                if (link.dataset.attachmentOpening === 'true') {
-                    return;
-                }
+            const label = link.querySelector('[data-attachment-open-label]');
+            const status = link.parentElement?.querySelector('[data-attachment-open-status]');
+            const originalLabel = label?.textContent?.trim() || 'Supporting document';
+            let resetTimer;
 
+            const resetAttachmentLink = () => {
+                window.clearTimeout(resetTimer);
+                link.classList.remove('is-opening');
+                delete link.dataset.attachmentOpening;
+                label?.replaceChildren(originalLabel);
+                status?.replaceChildren('');
+            };
+
+            link.addEventListener('click', () => {
                 link.dataset.attachmentOpening = 'true';
                 link.classList.add('is-opening');
-                link.querySelector('[data-attachment-open-label]')?.replaceChildren('Opening attachment...');
-                link.parentElement?.querySelector('[data-attachment-open-status]')?.replaceChildren('Opening attachment in a new tab.');
+                label?.replaceChildren('Opening attachment...');
+                status?.replaceChildren('Opening attachment in a new tab.');
+
+                // The link opens in a new tab, so restore the in-page control as
+                // soon as that navigation has been launched and once focus returns.
+                resetTimer = window.setTimeout(resetAttachmentLink, 0);
+                window.addEventListener('focus', resetAttachmentLink, { once: true });
             });
         });
+
+        const desktopClaimDetails = Array.from(document.querySelectorAll(
+            '[data-claim-details-review][data-claim-details-context="desktop"]'
+        ));
+
+        const trackDesktopDetailOnce = (details) => {
+            const claimId = details.dataset.claimId;
+
+            if (!claimId || desktopReviewedClaims.has(claimId)) {
+                return;
+            }
+
+            desktopReviewedClaims.add(claimId);
+            trackClaimDetailsReview(details);
+        };
+
+        if ('IntersectionObserver' in window) {
+            const desktopDetailObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting || entry.intersectionRatio < 0.5) {
+                        return;
+                    }
+
+                    trackDesktopDetailOnce(entry.target);
+                    desktopDetailObserver.unobserve(entry.target);
+                });
+            }, { threshold: [0, 0.5, 1] });
+
+            desktopClaimDetails.forEach((details) => desktopDetailObserver.observe(details));
+        } else {
+            const evaluateDesktopDetails = () => {
+                desktopClaimDetails.forEach((details) => {
+                    if (desktopReviewedClaims.has(details.dataset.claimId)) {
+                        return;
+                    }
+
+                    const bounds = details.getBoundingClientRect();
+                    const visibleHeight = Math.max(0, Math.min(bounds.bottom, window.innerHeight) - Math.max(bounds.top, 0));
+
+                    if (bounds.height > 0 && visibleHeight / bounds.height >= 0.5) {
+                        trackDesktopDetailOnce(details);
+                    }
+                });
+            };
+
+            window.addEventListener('scroll', evaluateDesktopDetails, { passive: true });
+            window.addEventListener('resize', evaluateDesktopDetails);
+            evaluateDesktopDetails();
+        }
     })();
 </script>
 @endsection

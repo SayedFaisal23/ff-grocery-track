@@ -33,7 +33,7 @@
     </script>
 
     <!-- CSS Utama -->
-    <link rel="stylesheet" href="/css/app.css?v=2.17">
+    <link rel="stylesheet" href="/css/app.css?v=2.18">
     
     <!-- FontAwesome (untuk ikon sampingan) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -212,16 +212,185 @@
             }
         });
 
-        document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', (event) => {
-                if (event.defaultPrevented) {
+        const showLoadingOverlay = () => {
+            const overlay = document.getElementById('loadingOverlay');
+
+            if (overlay) {
+                overlay.style.display = 'flex';
+                overlay.style.opacity = '1';
+            }
+        };
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target;
+
+            if (!(form instanceof HTMLFormElement) || event.defaultPrevented || !form.checkValidity()) {
+                return;
+            }
+
+            const dialog = form.closest('dialog[open]');
+            if (dialog instanceof HTMLDialogElement) {
+                dialog.close();
+            }
+
+            showLoadingOverlay();
+        });
+
+        const allowedClaimFileExtensions = new Set(['jpg', 'jpeg', 'png', 'pdf']);
+        const maximumClaimFileSize = 5 * 1024 * 1024;
+
+        const claimFileError = (file) => {
+            if (!(file instanceof File)) {
+                return 'Sila pilih satu fail.';
+            }
+
+            const extension = file.name.split('.').pop()?.toLowerCase();
+            if (!extension || !allowedClaimFileExtensions.has(extension)) {
+                return 'Hanya fail JPG, JPEG, PNG, atau PDF dibenarkan.';
+            }
+
+            if (file.size > maximumClaimFileSize) {
+                return 'Saiz fail mesti 5 MB atau kurang.';
+            }
+
+            return null;
+        };
+
+        document.querySelectorAll('[data-file-dropzone]').forEach((dropzone) => {
+            const uploadArea = dropzone.closest('[data-file-upload-area]');
+            const input = uploadArea?.querySelector('[data-file-input]');
+            const selection = uploadArea?.querySelector('[data-file-selection]');
+            const fileName = uploadArea?.querySelector('[data-file-name]');
+            const status = uploadArea?.querySelector('[data-file-status]');
+            const removeButton = uploadArea?.querySelector('[data-file-remove]');
+            const submitButton = uploadArea?.querySelector('[data-file-submit]');
+
+            if (!(input instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const setStatus = (message = '') => {
+                if (status) {
+                    status.textContent = message;
+                }
+            };
+
+            const updateSelection = (file = null, message = '') => {
+                const hasValidFile = file instanceof File;
+                dropzone.classList.toggle('has-file', hasValidFile);
+                dropzone.classList.remove('is-dragging', 'has-error');
+
+                if (selection) {
+                    selection.hidden = !hasValidFile;
+                }
+
+                if (fileName) {
+                    fileName.textContent = hasValidFile ? file.name : '';
+                }
+
+                if (submitButton instanceof HTMLButtonElement) {
+                    submitButton.disabled = !hasValidFile;
+                    submitButton.setAttribute('aria-disabled', String(!hasValidFile));
+                }
+
+                setStatus(message);
+            };
+
+            const clearSelection = (message = 'Fail dibuang.') => {
+                input.value = '';
+                updateSelection(null, message);
+            };
+
+            const applyFile = (file, assignToInput = false) => {
+                const error = claimFileError(file);
+
+                if (error) {
+                    input.value = '';
+                    updateSelection(null, error);
+                    dropzone.classList.add('has-error');
+                    return false;
+                }
+
+                if (assignToInput) {
+                    try {
+                        const transfer = new DataTransfer();
+                        transfer.items.add(file);
+                        input.files = transfer.files;
+                    } catch (error) {
+                        clearSelection('Pelayar ini tidak menyokong fail seret dan lepas. Sila pilih fail menggunakan butang pilih fail.');
+                        return false;
+                    }
+                }
+
+                updateSelection(file, `Fail dipilih: ${file.name}`);
+                return true;
+            };
+
+            input.addEventListener('change', () => {
+                applyFile(input.files?.[0] ?? null);
+            });
+
+            dropzone.addEventListener('click', (event) => {
+                if (input.disabled || event.target.closest('button, a, input')) {
                     return;
                 }
 
-                const overlay = document.getElementById('loadingOverlay');
-                if (overlay) {
-                    overlay.style.display = 'flex';
-                    overlay.style.opacity = '1';
+                input.click();
+            });
+
+            dropzone.addEventListener('keydown', (event) => {
+                if (input.disabled || (event.key !== 'Enter' && event.key !== ' ')) {
+                    return;
+                }
+
+                event.preventDefault();
+                input.click();
+            });
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (event) => {
+                    if (input.disabled) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    dropzone.classList.add('is-dragging');
+                });
+            });
+
+            dropzone.addEventListener('dragleave', (event) => {
+                if (!dropzone.contains(event.relatedTarget)) {
+                    dropzone.classList.remove('is-dragging');
+                }
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                if (input.disabled) {
+                    return;
+                }
+
+                event.preventDefault();
+                dropzone.classList.remove('is-dragging');
+                const files = Array.from(event.dataTransfer?.files ?? []);
+
+                if (files.length !== 1) {
+                    clearSelection('Sila seret dan lepas satu fail sahaja.');
+                    dropzone.classList.add('has-error');
+                    return;
+                }
+
+                applyFile(files[0], true);
+            });
+
+            removeButton?.addEventListener('click', () => clearSelection());
+
+            const receiptForm = dropzone.closest('form[data-receipt-upload-form]');
+            receiptForm?.addEventListener('submit', (event) => {
+                if (claimFileError(input.files?.[0] ?? null)) {
+                    event.preventDefault();
+                    dropzone.classList.add('has-error');
+                    setStatus('Sila pilih resit yang sah sebelum memuat naik.');
+                    dropzone.focus();
                 }
             });
         });

@@ -10,6 +10,9 @@ class Tuntutan extends Model
 {
     public const OTHER_PAYMENT_METHOD = 'Lain-lain';
     public const OTHER_PAYMENT_METHOD_DETAIL = 'Own expenses';
+    public const DOCUMENT_PURCHASE_ATTACHMENT = 'purchase_attachment';
+    public const DOCUMENT_ATTACHMENT = 'attachment';
+    public const PRIVATE_DOCUMENT_PREFIX = 'claim-documents/';
 
     /** @var array<int, string> */
     public const FILTERABLE_TYPES = ['Pantry', 'General', 'Lunch'];
@@ -34,8 +37,17 @@ class Tuntutan extends Model
         'minggu_tuntutan',
         'status',
         'attachment',
+        'purchase_attachment',
         'receipt_viewed_by',
         'receipt_viewed_at',
+        'purchase_attachment_viewed_by',
+        'purchase_attachment_viewed_at',
+        'attachment_viewed_by',
+        'attachment_viewed_at',
+        'latest_attachment_downloaded_by',
+        'latest_attachment_downloaded_at',
+        'claim_details_viewed_by',
+        'claim_details_viewed_at',
         'request_date',
         'item_specification',
         'purchase_purpose',
@@ -60,6 +72,10 @@ class Tuntutan extends Model
         'invoice_sent_to_account' => 'boolean',
         'reviewed_at' => 'datetime',
         'receipt_viewed_at' => 'datetime',
+        'purchase_attachment_viewed_at' => 'datetime',
+        'attachment_viewed_at' => 'datetime',
+        'latest_attachment_downloaded_at' => 'datetime',
+        'claim_details_viewed_at' => 'datetime',
     ];
 
     /**
@@ -84,6 +100,114 @@ class Tuntutan extends Model
     public function receiptViewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'receipt_viewed_by');
+    }
+
+    /**
+     * Get the Superadmin who first opened the purchase quotation/invoice.
+     */
+    public function purchaseAttachmentViewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'purchase_attachment_viewed_by');
+    }
+
+    /**
+     * Get the Superadmin who first opened this claim's attachment/receipt.
+     */
+    public function attachmentViewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'attachment_viewed_by');
+    }
+
+    /**
+     * Get the Superadmin who most recently opened any claim document.
+     */
+    public function latestAttachmentDownloader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'latest_attachment_downloaded_by');
+    }
+
+    /**
+     * Get the Superadmin who most recently reviewed this claim's details.
+     */
+    public function claimDetailsViewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'claim_details_viewed_by');
+    }
+
+    /**
+     * Determine whether a supported document has a stored path.
+     */
+    public function hasDocument(string $document): bool
+    {
+        return $this->isDocumentColumn($document)
+            && is_string($this->getAttribute($document))
+            && $this->getAttribute($document) !== '';
+    }
+
+    /**
+     * Determine whether a document is a new private upload that no
+     * Superadmin has opened yet. Historic public attachments never pulse.
+     */
+    public function isDocumentAwaitingView(string $document): bool
+    {
+        if (! $this->hasDocument($document)) {
+            return false;
+        }
+
+        $path = (string) $this->getAttribute($document);
+
+        return str_starts_with($path, self::PRIVATE_DOCUMENT_PREFIX)
+            && $this->documentViewedAt($document) === null;
+    }
+
+    /**
+     * Return the first-view timestamp for a supported document.
+     */
+    public function documentViewedAt(string $document): mixed
+    {
+        return $this->getAttribute($this->documentViewedAtColumn($document));
+    }
+
+    /**
+     * Return the timestamp column associated with a supported document.
+     */
+    public function documentViewedAtColumn(string $document): string
+    {
+        return $this->documentColumnMap($document)['viewed_at'];
+    }
+
+    /**
+     * Return the viewer column associated with a supported document.
+     */
+    public function documentViewedByColumn(string $document): string
+    {
+        return $this->documentColumnMap($document)['viewed_by'];
+    }
+
+    private function isDocumentColumn(string $document): bool
+    {
+        return in_array($document, [
+            self::DOCUMENT_PURCHASE_ATTACHMENT,
+            self::DOCUMENT_ATTACHMENT,
+        ], true);
+    }
+
+    /**
+     * @return array{viewed_by: string, viewed_at: string}
+     */
+    private function documentColumnMap(string $document): array
+    {
+        return match ($document) {
+            self::DOCUMENT_PURCHASE_ATTACHMENT => [
+                'viewed_by' => 'purchase_attachment_viewed_by',
+                'viewed_at' => 'purchase_attachment_viewed_at',
+            ],
+            self::DOCUMENT_ATTACHMENT => [
+                'viewed_by' => 'attachment_viewed_by',
+                'viewed_at' => 'attachment_viewed_at',
+            ],
+            default => throw new \InvalidArgumentException('Unsupported claim document.'),
+        };
     }
 
     /**

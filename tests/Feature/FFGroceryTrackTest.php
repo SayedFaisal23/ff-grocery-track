@@ -879,6 +879,7 @@ class FFGroceryTrackTest extends TestCase
     public function test_approved_purchase_request_requires_owner_attachment_before_completion(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
 
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
@@ -942,7 +943,7 @@ class FFGroceryTrackTest extends TestCase
 
         $request->refresh();
         $this->assertNotNull($request->attachment);
-        Storage::disk('public')->assertExists($request->attachment);
+        Storage::disk('local')->assertExists($request->attachment);
 
         $this->actingAs($stocker)
             ->post("/tuntutan/{$request->id}/lampiran", [
@@ -984,6 +985,7 @@ class FFGroceryTrackTest extends TestCase
     public function test_lunch_keeps_its_initial_attachment_and_completion_flow(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
 
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
@@ -1141,6 +1143,7 @@ class FFGroceryTrackTest extends TestCase
     public function test_api_uses_purchase_request_fields_and_completion_workflow(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
 
         $stocker = User::factory()->create(['api_token' => 'stocker-purchase-token']);
         $stocker->assignRole('Stocker');

@@ -161,6 +161,51 @@
                     @enderror
                 </div>
             </div>
+
+            <div class="request-supporting-document" data-file-upload-area>
+                <label for="purchase_attachment" class="form-label request-supporting-document-label">
+                    <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
+                    Dokumen Sokongan
+                    <span>(Pilihan)</span>
+                </label>
+                <p id="purchase-attachment-help" class="request-supporting-document-help">
+                    Muat naik quotation atau invois untuk membantu semakan permohonan ini.
+                </p>
+                <div
+                    class="claim-file-dropzone"
+                    data-file-dropzone
+                    role="button"
+                    tabindex="0"
+                    aria-describedby="purchase-attachment-help purchase-attachment-status"
+                >
+                    <input
+                        type="file"
+                        name="purchase_attachment"
+                        id="purchase_attachment"
+                        class="claim-file-input"
+                        data-file-input
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        tabindex="-1"
+                        aria-describedby="purchase-attachment-help purchase-attachment-status"
+                    >
+                    <i class="fa-solid fa-cloud-arrow-up claim-file-dropzone-icon" aria-hidden="true"></i>
+                    <strong data-file-prompt>Drag &amp; drop your file here</strong>
+                    <span>or choose a file</span>
+                    <small>JPG, JPEG, PNG atau PDF &middot; Maksimum 5 MB</small>
+                </div>
+                <div class="claim-file-selection" data-file-selection hidden>
+                    <i class="fa-solid fa-file" aria-hidden="true"></i>
+                    <span data-file-name></span>
+                    <button type="button" class="claim-file-remove" data-file-remove aria-label="Buang fail dipilih">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        <span>Buang</span>
+                    </button>
+                </div>
+                <p id="purchase-attachment-status" class="claim-file-status" data-file-status role="status" aria-live="polite"></p>
+                @error('purchase_attachment')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
+            </div>
         </section>
 
         <section id="section-lunch" class="mode-section" style="display: none;">

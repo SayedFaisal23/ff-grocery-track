@@ -1764,6 +1764,27 @@ html[data-theme="light"] .badge-general {
     color: var(--color-success);
 }
 
+@keyframes claim-document-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.55), 0 0 0 rgba(99, 102, 241, 0);
+    }
+    50% {
+        box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1), 0 0 18px rgba(99, 102, 241, 0.72);
+    }
+}
+
+.claim-document-awaiting-view {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    animation: claim-document-pulse 1.75s ease-in-out infinite;
+}
+
+.claim-document-awaiting-view:hover,
+.claim-document-awaiting-view:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
 .claim-receipt-viewed {
     align-items: center;
     color: var(--color-success);
@@ -1786,12 +1807,191 @@ html[data-theme="light"] .badge-general {
     margin-bottom: 0.35rem;
 }
 
+.claim-attachment-upload-label,
+.request-supporting-document-label {
+    color: var(--text-main) !important;
+    font-size: 0.88rem !important;
+    font-weight: 700;
+}
+
+.request-supporting-document-label i {
+    color: var(--color-primary);
+    margin-right: 0.35rem;
+}
+
+.request-supporting-document-label span {
+    color: var(--text-dark);
+    font-weight: 400;
+}
+
+.claim-attachment-upload-help,
+.request-supporting-document-help {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    margin: -0.1rem 0 0.65rem;
+}
+
+.request-supporting-document {
+    margin-top: 0.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.claim-file-dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 9.25rem;
+    padding: 1rem;
+    border: 1.5px dashed rgba(99, 102, 241, 0.46);
+    border-radius: var(--radius-md);
+    background: rgba(99, 102, 241, 0.045);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.claim-file-dropzone:hover,
+.claim-file-dropzone:focus-visible,
+.claim-file-dropzone.is-dragging {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.11);
+    box-shadow: 0 0 0 4px var(--border-glow);
+    color: var(--text-main);
+    outline: none;
+}
+
+.claim-file-dropzone.is-dragging {
+    transform: scale(1.005);
+}
+
+.claim-file-dropzone.has-file {
+    border-color: var(--color-success);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.claim-file-dropzone.has-error {
+    border-color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.claim-file-dropzone-icon {
+    margin-bottom: 0.4rem;
+    color: var(--color-primary);
+    font-size: 1.35rem;
+}
+
+.claim-file-dropzone strong {
+    color: var(--text-main);
+    font-size: 0.86rem;
+}
+
+.claim-file-dropzone > span {
+    margin-top: 0.15rem;
+    font-size: 0.8rem;
+}
+
+.claim-file-dropzone small {
+    margin-top: 0.65rem;
+    color: var(--text-dark);
+    font-size: 0.7rem;
+}
+
+.claim-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.claim-file-selection {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    margin-top: 0.55rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(16, 185, 129, 0.34);
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.07);
+    color: var(--text-main);
+    font-size: 0.78rem;
+}
+
+.claim-file-selection[hidden] {
+    display: none;
+}
+
+.claim-file-selection > i {
+    color: var(--color-success);
+}
+
+.claim-file-selection > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.claim-file-remove {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 0.2rem 0.35rem;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.72rem;
+}
+
+.claim-file-remove:hover,
+.claim-file-remove:focus-visible {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-danger);
+    outline: none;
+}
+
+.claim-file-status {
+    min-height: 1.1rem;
+    margin-top: 0.4rem;
+    color: var(--text-muted);
+    font-size: 0.73rem;
+}
+
 .claim-attachment-controls,
 .claim-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
+}
+
+.claim-attachment-controls {
+    margin-top: 0.7rem;
+}
+
+.claim-file-submit:disabled,
+.claim-file-submit[aria-disabled="true"] {
+    background: rgba(100, 116, 139, 0.38);
+    color: rgba(248, 250, 252, 0.68);
+    cursor: not-allowed;
+    filter: saturate(0.35);
+    opacity: 0.72;
+}
+
+.claim-file-submit:disabled:hover,
+.claim-file-submit[aria-disabled="true"]:hover {
+    background: rgba(100, 116, 139, 0.38);
 }
 
 .claim-attachment-controls input[type="file"] {
@@ -1832,6 +2032,47 @@ html[data-theme="light"] .badge-general {
 .claim-actions-cell {
     min-width: 0;
     text-align: right;
+}
+
+.claim-review-audit {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.9rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.claim-review-audit > div {
+    min-width: 0;
+}
+
+.claim-review-audit dt {
+    color: var(--text-dark);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+}
+
+.claim-review-audit dd {
+    margin-top: 0.1rem;
+    color: var(--text-main);
+    font-size: 0.76rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .claim-document-awaiting-view {
+        animation: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    }
+
+    .claim-file-dropzone,
+    .claim-file-dropzone.is-dragging {
+        transform: none;
+    }
 }
 
 .claims-mobile-list {

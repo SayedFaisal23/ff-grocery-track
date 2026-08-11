@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
 use App\Models\TuntutanPreset;
+use App\Services\ClaimDocumentService;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
@@ -80,58 +81,53 @@ class TuntutanController extends Controller
      * Paparkan lampiran tuntutan melalui aplikasi, tanpa bergantung pada
      * pelayan web untuk membenarkan akses kepada symbolic link /storage.
      */
-    public function showAttachment(Tuntutan $tuntutan)
+    public function showAttachment(Tuntutan $tuntutan, ClaimDocumentService $claimDocuments)
     {
+        return $this->showDocument(
+            $tuntutan,
+            Tuntutan::DOCUMENT_ATTACHMENT,
+            $claimDocuments,
+        );
+    }
+
+    /**
+     * Serve the optional quotation/invoice submitted with a Pantry/General
+     * purchase request through the same authorised document flow.
+     */
+    public function showPurchaseAttachment(Tuntutan $tuntutan, ClaimDocumentService $claimDocuments)
+    {
+        return $this->showDocument(
+            $tuntutan,
+            Tuntutan::DOCUMENT_PURCHASE_ATTACHMENT,
+            $claimDocuments,
+        );
+    }
+
+    /**
+     * Stream an authorised claim document after validating its known storage
+     * location. The service records Superadmin views only after existence is
+     * established, so missing files never mutate claim audit data.
+     */
+    private function showDocument(
+        Tuntutan $tuntutan,
+        string $document,
+        ClaimDocumentService $claimDocuments,
+    ) {
         $user = Auth::user();
 
-        if (! $user->hasRole('Superadmin') && $tuntutan->user_id !== $user->id) {
+        if (! $claimDocuments->canAccess($tuntutan, $user)) {
             abort(403);
         }
 
-        $attachmentPath = $tuntutan->attachment;
+        $resolvedDocument = $claimDocuments->openForUser($tuntutan, $document, $user);
 
-        if (
-            ! is_string($attachmentPath)
-            || ! str_starts_with($attachmentPath, 'attachments/')
-            || str_contains($attachmentPath, '..')
-            || ! Storage::disk('public')->exists($attachmentPath)
-        ) {
+        if ($resolvedDocument === null) {
             abort(404);
         }
 
-        if ($user->hasRole('Superadmin')) {
-            $receiptView = DB::transaction(function () use ($tuntutan, $user) {
-                $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
-
-                if (! $claim->isAwaitingReceiptReview()) {
-                    return null;
-                }
-
-                $oldData = $claim->toArray();
-                $claim->update([
-                    'receipt_viewed_by' => $user->id,
-                    'receipt_viewed_at' => now(),
-                ]);
-
-                return [$oldData, $claim];
-            });
-
-            if ($receiptView !== null) {
-                [$oldData, $claim] = $receiptView;
-
-                LogAktiviti::create([
-                    'user_id' => $user->id,
-                    'aktiviti' => "{$user->name} telah melihat resit permohonan ID {$claim->id} ({$claim->nama_item}).",
-                    'item_id' => null,
-                    'data_lama' => $oldData,
-                    'data_baru' => $claim->toArray(),
-                ]);
-            }
-        }
-
-        return Storage::disk('public')->response(
-            $attachmentPath,
-            basename($attachmentPath),
+        return Storage::disk($resolvedDocument['disk'])->response(
+            $resolvedDocument['path'],
+            $resolvedDocument['filename'],
             ['X-Content-Type-Options' => 'nosniff'],
             'inline'
         );
@@ -140,7 +136,11 @@ class TuntutanController extends Controller
     /**
      * Simpan lampiran selepas permohonan Pantry/General diluluskan.
      */
-    public function uploadAttachment(Request $request, Tuntutan $tuntutan)
+    public function uploadAttachment(
+        Request $request,
+        Tuntutan $tuntutan,
+        ClaimDocumentService $claimDocuments,
+    )
     {
         $user = Auth::user();
 
@@ -152,7 +152,7 @@ class TuntutanController extends Controller
             'attachment' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
         ]);
 
-        $result = DB::transaction(function () use ($request, $tuntutan) {
+        $result = DB::transaction(function () use ($request, $tuntutan, $claimDocuments) {
             $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
 
             if (! $claim->canUploadAttachment()) {
@@ -161,7 +161,7 @@ class TuntutanController extends Controller
 
             $oldData = $claim->toArray();
             $claim->update([
-                'attachment' => $request->file('attachment')->store('attachments', 'public'),
+                'attachment' => $claimDocuments->store($request->file('attachment')),
                 'status' => 'Completed',
             ]);
 
@@ -188,7 +188,7 @@ class TuntutanController extends Controller
     /**
      * Simpan permohonan pembelian atau tuntutan Lunch mingguan.
      */
-    public function store(Request $request)
+    public function store(Request $request, ClaimDocumentService $claimDocuments)
     {
         $user = Auth::user();
 
@@ -202,9 +202,9 @@ class TuntutanController extends Controller
         }
 
         if ($tag === 'Lunch') {
-            $this->storeLunchClaims($request, $user->id, $user->name);
+            $this->storeLunchClaims($request, $user->id, $user->name, $claimDocuments);
         } else {
-            $this->storePurchaseRequest($request, $user->id, $user->name, $tag);
+            $this->storePurchaseRequest($request, $user->id, $user->name, $tag, $claimDocuments);
         }
 
         return redirect()->route('tuntutan.index')->with('success', 'Permohonan berjaya dihantar.');
@@ -271,7 +271,35 @@ class TuntutanController extends Controller
         return back()->with('success', $message);
     }
 
-    private function storePurchaseRequest(Request $request, int $userId, string $requestorName, string $tag): void
+    /**
+     * Record the latest Superadmin claim-detail review for the audit display.
+     */
+    public function recordDetailsViewed(Tuntutan $tuntutan, ClaimDocumentService $claimDocuments)
+    {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Superadmin')) {
+            abort(403);
+        }
+
+        $claim = $claimDocuments->recordClaimDetailsViewed($tuntutan, $user);
+        $viewedAt = $claim->claim_details_viewed_at;
+
+        return response()->json([
+            'claim_details_viewed_at' => $viewedAt?->toIso8601String(),
+            'claim_details_viewed_at_display' => $viewedAt
+                ?->timezone(config('app.timezone', 'Asia/Kuala_Lumpur'))
+                ->format('d/m/Y, H:i'),
+        ]);
+    }
+
+    private function storePurchaseRequest(
+        Request $request,
+        int $userId,
+        string $requestorName,
+        string $tag,
+        ClaimDocumentService $claimDocuments,
+    ): void
     {
         $isOtherPaymentMethod = $request->input('payment_method') === Tuntutan::OTHER_PAYMENT_METHOD;
         $paymentMethodRules = ['required', 'string', 'max:255'];
@@ -305,6 +333,7 @@ class TuntutanController extends Controller
             'invoice_sent_to_account' => ['required', 'boolean'],
             'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
             'attachment' => ['prohibited'],
+            'purchase_attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
         ], [
             'purchase_platform.exists' => 'Sila pilih platform pembelian yang telah ditetapkan oleh Superadmin.',
             'payment_method.exists' => 'Please select a payment method configured by the Superadmin.',
@@ -313,6 +342,9 @@ class TuntutanController extends Controller
         ]);
 
         $requestDate = Carbon::parse($validated['request_date']);
+        $purchaseAttachmentPath = $request->hasFile('purchase_attachment')
+            ? $claimDocuments->store($request->file('purchase_attachment'))
+            : null;
         $claim = Tuntutan::create([
             'user_id' => $userId,
             'requestor_name' => $requestorName,
@@ -332,6 +364,7 @@ class TuntutanController extends Controller
             'tarikh_beli' => $validated['request_date'],
             'minggu_tuntutan' => $this->weekFor($requestDate),
             'status' => 'Pending',
+            'purchase_attachment' => $purchaseAttachmentPath,
         ]);
 
         LogAktiviti::create([
@@ -342,7 +375,12 @@ class TuntutanController extends Controller
         ]);
     }
 
-    private function storeLunchClaims(Request $request, int $userId, string $requestorName): void
+    private function storeLunchClaims(
+        Request $request,
+        int $userId,
+        string $requestorName,
+        ClaimDocumentService $claimDocuments,
+    ): void
     {
         $request->validate([
             'week' => ['required', 'regex:/^\d{4}-W\d{2}$/'],
@@ -354,6 +392,7 @@ class TuntutanController extends Controller
             'lunch_hargas' => ['required', 'array', 'size:7'],
             'lunch_hargas.*' => ['nullable', 'numeric', 'min:0'],
             'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+            'purchase_attachment' => ['prohibited'],
         ]);
 
         $lunchDates = $request->input('lunch_dates');
@@ -399,7 +438,7 @@ class TuntutanController extends Controller
             );
         }
 
-        $attachmentPath = $this->storeAttachment($request);
+        $attachmentPath = $this->storeAttachment($request, $claimDocuments);
 
         DB::transaction(function () use ($lunchDates, $lunchButirans, $lunchPaxes, $lunchHargas, $week, $attachmentPath, $userId, $requestorName): void {
             for ($i = 0; $i < 7; $i++) {
@@ -438,10 +477,10 @@ class TuntutanController extends Controller
         });
     }
 
-    private function storeAttachment(Request $request): ?string
+    private function storeAttachment(Request $request, ClaimDocumentService $claimDocuments): ?string
     {
         return $request->hasFile('attachment')
-            ? $request->file('attachment')->store('attachments', 'public')
+            ? $claimDocuments->store($request->file('attachment'))
             : null;
     }
 

@@ -32,6 +32,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/tuntutan', [TuntutanController::class, 'index'])->name('tuntutan.index');
         Route::get('/tuntutan/tambah', [TuntutanController::class, 'create'])->name('tuntutan.create');
         Route::post('/tuntutan', [TuntutanController::class, 'store'])->name('tuntutan.store');
+        Route::get('/tuntutan/{tuntutan}/supporting-document', [TuntutanController::class, 'showPurchaseAttachment'])
+            ->name('tuntutan.purchase-attachment');
         Route::get('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'showAttachment'])->name('tuntutan.attachment');
         Route::post('/tuntutan/{tuntutan}/lampiran', [TuntutanController::class, 'uploadAttachment'])->name('tuntutan.attachment.store');
     });
@@ -52,6 +54,8 @@ Route::middleware(['auth'])->group(function () {
 
         Route::patch('/tuntutan/{tuntutan}/status', [TuntutanController::class, 'updateStatus'])
             ->name('tuntutan.status');
+        Route::post('/tuntutan/{tuntutan}/details-viewed', [TuntutanController::class, 'recordDetailsViewed'])
+            ->name('tuntutan.details-viewed');
 
         // Pengurusan Akaun Pengguna
         Route::resource('pengguna', PenggunaController::class);

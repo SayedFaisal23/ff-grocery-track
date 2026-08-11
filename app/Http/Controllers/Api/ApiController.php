@@ -9,18 +9,25 @@ use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
 use App\Models\TuntutanPreset;
 use App\Models\User;
+use App\Services\ClaimDocumentService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ApiController extends Controller
 {
+    public function __construct(
+        private readonly ClaimDocumentService $claimDocuments,
+    ) {
+    }
+
     /**
      * Log masuk & jana api_token.
      */
@@ -322,7 +329,10 @@ class ApiController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $claims = $query->orderBy('tarikh_beli', 'desc')->get();
+        $claims = $query->orderBy('tarikh_beli', 'desc')
+            ->get()
+            ->map(fn (Tuntutan $claim): array => $this->claimApiPayload($claim))
+            ->values();
 
         return response()->json($claims);
     }
@@ -386,31 +396,42 @@ class ApiController extends Controller
                 'other_payment_method' => $otherPaymentMethodRules,
                 'invoice_sent_to_account' => ['required', 'boolean'],
                 'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
+                'purchase_attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
                 'attachment' => ['prohibited'],
             ]);
 
             $date = Carbon::parse($validated['request_date']);
 
-            $claim = Tuntutan::create([
-                'user_id' => Auth::id(),
-                'requestor_name' => Auth::user()->name,
-                'nama_item' => $validated['item_specification'],
-                'item_specification' => $validated['item_specification'],
-                'purchase_purpose' => $validated['purchase_purpose'],
-                'invoice_no' => $validated['invoice_no'] ?? null,
-                'purchase_platform' => $validated['purchase_platform'],
-                'tag' => $tag,
-                'nilai_tuntutan' => $validated['total_item_amount'],
-                'total_item_amount' => $validated['total_item_amount'],
-                'payment_method' => $validated['payment_method'],
-                'other_payment_method' => $isOtherPaymentMethod ? Tuntutan::OTHER_PAYMENT_METHOD_DETAIL : null,
-                'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
-                'request_date' => $validated['request_date'],
-                'date_receive' => $validated['date_receive'],
-                'tarikh_beli' => $validated['request_date'],
-                'minggu_tuntutan' => $this->weekFor($date),
-                'status' => 'Pending',
-            ]);
+            $claim = DB::transaction(function () use ($request, $validated, $tag, $isOtherPaymentMethod, $date) {
+                $claim = Tuntutan::create([
+                    'user_id' => Auth::id(),
+                    'requestor_name' => Auth::user()->name,
+                    'nama_item' => $validated['item_specification'],
+                    'item_specification' => $validated['item_specification'],
+                    'purchase_purpose' => $validated['purchase_purpose'],
+                    'invoice_no' => $validated['invoice_no'] ?? null,
+                    'purchase_platform' => $validated['purchase_platform'],
+                    'tag' => $tag,
+                    'nilai_tuntutan' => $validated['total_item_amount'],
+                    'total_item_amount' => $validated['total_item_amount'],
+                    'payment_method' => $validated['payment_method'],
+                    'other_payment_method' => $isOtherPaymentMethod ? Tuntutan::OTHER_PAYMENT_METHOD_DETAIL : null,
+                    'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
+                    'request_date' => $validated['request_date'],
+                    'date_receive' => $validated['date_receive'],
+                    'tarikh_beli' => $validated['request_date'],
+                    'minggu_tuntutan' => $this->weekFor($date),
+                    'status' => 'Pending',
+                ]);
+
+                if ($request->hasFile('purchase_attachment')) {
+                    $claim->update([
+                        'purchase_attachment' => $this->claimDocuments->store($request->file('purchase_attachment')),
+                    ]);
+                }
+
+                return $claim;
+            });
 
             LogAktiviti::create([
                 'user_id' => Auth::id(),
@@ -418,7 +439,7 @@ class ApiController extends Controller
                 'data_baru' => $claim->toArray(),
             ]);
 
-            return response()->json($claim, 201);
+            return response()->json($this->claimApiPayload($claim), 201);
         }
 
         return $this->storeApiLunchClaims($request);
@@ -473,7 +494,7 @@ class ApiController extends Controller
             'data_baru' => $claim->toArray(),
         ]);
 
-        return response()->json($claim);
+        return response()->json($this->claimApiPayload($claim));
     }
 
     /**
@@ -500,7 +521,7 @@ class ApiController extends Controller
 
             $oldData = $claim->toArray();
             $claim->update([
-                'attachment' => $request->file('attachment')->store('attachments', 'public'),
+                'attachment' => $this->claimDocuments->store($request->file('attachment')),
                 'status' => 'Completed',
             ]);
 
@@ -522,7 +543,47 @@ class ApiController extends Controller
             'data_baru' => $claim->toArray(),
         ]);
 
-        return response()->json($claim);
+        return response()->json($this->claimApiPayload($claim));
+    }
+
+    /**
+     * Stream the optional quotation or invoice attached to a Pantry/General
+     * purchase request. Access is limited to its owner and Superadmins.
+     */
+    public function tuntutanShowPurchaseAttachment(Tuntutan $tuntutan)
+    {
+        return $this->tuntutanOpenDocument(
+            $tuntutan,
+            ClaimDocumentService::DOCUMENT_PURCHASE_ATTACHMENT,
+        );
+    }
+
+    /**
+     * Stream a claim's supporting document or final purchase receipt. This
+     * endpoint remains compatible with legacy public-disk attachment paths.
+     */
+    public function tuntutanShowAttachment(Tuntutan $tuntutan)
+    {
+        return $this->tuntutanOpenDocument(
+            $tuntutan,
+            ClaimDocumentService::DOCUMENT_ATTACHMENT,
+        );
+    }
+
+    /**
+     * Record that a Superadmin has reviewed the claim details.
+     */
+    public function tuntutanRecordDetailsViewed(Tuntutan $tuntutan)
+    {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Superadmin')) {
+            return response()->json(['message' => 'Hanya Superadmin dibenarkan merekod semakan tuntutan.'], 403);
+        }
+
+        $claim = $this->claimDocuments->recordClaimDetailsViewed($tuntutan, $user);
+
+        return response()->json($this->claimApiPayload($claim));
     }
 
     /**
@@ -608,6 +669,7 @@ class ApiController extends Controller
             'lunch_hargas' => ['required', 'array', 'size:7'],
             'lunch_hargas.*' => ['nullable', 'numeric', 'min:0'],
             'attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+            'purchase_attachment' => ['prohibited'],
         ]);
 
         $dates = $request->input('lunch_dates');
@@ -644,7 +706,7 @@ class ApiController extends Controller
         }
 
         $attachmentPath = $request->hasFile('attachment')
-            ? $request->file('attachment')->store('attachments', 'public')
+            ? $this->claimDocuments->store($request->file('attachment'))
             : null;
         $week = $request->input('week');
         $user = Auth::user();
@@ -692,8 +754,95 @@ class ApiController extends Controller
 
         return response()->json([
             'message' => 'Tuntutan lunch berjaya dihantar.',
-            'claims' => $createdClaims,
+            'claims' => array_map(
+                fn (Tuntutan $claim): array => $this->claimApiPayload($claim),
+                $createdClaims,
+            ),
         ], 201);
+    }
+
+    /**
+     * Return a document after the service has confirmed the requester's
+     * access and the file's presence. No file path is accepted from the API.
+     */
+    private function tuntutanOpenDocument(Tuntutan $tuntutan, string $document)
+    {
+        $user = Auth::user();
+
+        if (! $this->claimDocuments->canAccess($tuntutan, $user)) {
+            return response()->json(['message' => 'Tiada kebenaran untuk melihat lampiran ini.'], 403);
+        }
+
+        $resolvedDocument = $this->claimDocuments->openForUser($tuntutan, $document, $user);
+
+        if ($resolvedDocument === null) {
+            return response()->json(['message' => 'Lampiran tidak ditemui.'], 404);
+        }
+
+        return Storage::disk($resolvedDocument['disk'])->response(
+            $resolvedDocument['path'],
+            $resolvedDocument['filename'],
+            ['X-Content-Type-Options' => 'nosniff'],
+            'inline',
+        );
+    }
+
+    /**
+     * Preserve the established claim response while supplying API clients
+     * with explicit document availability and authorised endpoint URLs.
+     *
+     * @return array<string, mixed>
+     */
+    private function claimApiPayload(Tuntutan $claim): array
+    {
+        $metadata = $this->claimDocuments->documentMetadata($claim);
+        $purchaseAttachment = $this->claimDocumentMetadataWithUrl(
+            [
+                'available' => (bool) ($metadata['purchase_attachment_available'] ?? false),
+                'awaiting_view' => (bool) ($metadata['purchase_attachment_awaiting_view'] ?? false),
+            ],
+            (bool) ($metadata['purchase_attachment_available'] ?? false),
+            'api.tuntutan.purchase-attachment',
+            $claim,
+        );
+        $attachment = $this->claimDocumentMetadataWithUrl(
+            [
+                'available' => (bool) ($metadata['attachment_available'] ?? false),
+                'awaiting_view' => (bool) ($metadata['attachment_awaiting_view'] ?? false),
+            ],
+            (bool) ($metadata['attachment_available'] ?? false),
+            'api.tuntutan.attachment',
+            $claim,
+        );
+
+        return array_merge($claim->toArray(), $metadata, [
+            'documents' => [
+                ClaimDocumentService::DOCUMENT_PURCHASE_ATTACHMENT => $purchaseAttachment,
+                ClaimDocumentService::DOCUMENT_ATTACHMENT => $attachment,
+            ],
+            'purchase_attachment_available' => $purchaseAttachment['available'],
+            'purchase_attachment_url' => $purchaseAttachment['url'],
+            'attachment_available' => $attachment['available'],
+            'attachment_url' => $attachment['url'],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     * @return array<string, mixed>
+     */
+    private function claimDocumentMetadataWithUrl(
+        array $metadata,
+        bool $available,
+        string $route,
+        Tuntutan $claim,
+    ): array {
+        $metadata['available'] = $available;
+        $metadata['url'] = $available
+            ? route($route, ['tuntutan' => $claim])
+            : null;
+
+        return $metadata;
     }
 
     private function apiPresetsFor(string $type)
