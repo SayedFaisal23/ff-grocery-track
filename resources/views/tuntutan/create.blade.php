@@ -165,8 +165,8 @@
             <div class="request-supporting-document" data-file-upload-area>
                 <label for="purchase_attachment" class="form-label request-supporting-document-label">
                     <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
-                    Dokumen Sokongan
-                    <span>(Pilihan)</span>
+                    Invoice/Quotation
+                    <span>(Optional)</span>
                 </label>
                 <p id="purchase-attachment-help" class="request-supporting-document-help">
                     Muat naik quotation atau invois untuk membantu semakan permohonan ini.

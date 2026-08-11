@@ -64,7 +64,7 @@
                 data-attachment-open-link
             >
                 <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
-                <span data-attachment-open-label>Supporting document</span>
+                <span data-attachment-open-label>Invoice/Quotation</span>
             </a>
             <span class="sr-only" data-attachment-open-status role="status" aria-live="polite"></span>
         </div>
