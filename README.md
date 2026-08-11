@@ -1,58 +1,194 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# FFGroceryTrack
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+FFGroceryTrack is a Malay-language grocery inventory and purchase-request system. It gives teams one place to track stock, expiry dates, restock needs, requests, receipts, and the activity behind each change.
 
-## About Laravel
+Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CSS/Vite frontend toolchain, it is also available as an installable progressive web app with a basic offline fallback.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What it does
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Tracks inventory by category, item type, capacity, available quantity, percentage remaining, expiry date, and restock threshold.
+- Provides searchable, sortable inventory and restock views, including quick stock adjustments and expired-item totals.
+- Records category colours, audit logs, and inventory changes.
+- Supports three request types: **Pantry**, **General**, and weekly **Lunch** claims.
+- Guides Pantry and General requests through approval, receipt upload, and completion; receipt files can be JPEG, PNG, or PDF up to 5 MB.
+- Lets Superadmins manage users, categories, purchasing-platform and payment-method presets, and activity logs.
+- Sends optional Telegram reminders for items that are out of stock or at/below their restock threshold.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+The application uses the `Asia/Kuala_Lumpur` timezone and is configured for Malay (`ms`) by default.
 
-## Learning Laravel
+## Roles and access
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+| Role | Access |
+| --- | --- |
+| **Superadmin** | Inventory and restock management, all purchase-request review, user management, categories, request presets, and activity logs. |
+| **Stocker** | Inventory and restock management, personal purchase-request history, new requests, and receipt uploads for approved Pantry/General requests. |
+| **Tracker** | Inventory and restock management only. |
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+All application pages other than the login page require authentication.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Purchase-request workflow
 
-## Agentic Development
+1. A Stocker submits a Pantry, General, or weekly Lunch request.
+2. A Superadmin approves or rejects the request.
+3. An approved Pantry or General request remains pending until its owner uploads the purchase receipt.
+4. Uploading the receipt completes the request. The first Superadmin to open a completed purchase receipt is recorded in the activity log.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Lunch requests are submitted as daily entries for a selected week and are completed when the Superadmin records the decision.
+
+## Requirements
+
+- PHP 8.3 or a compatible PHP 8.x release
+- Composer 2
+- Node.js (current LTS) and npm
+- MySQL or MariaDB
+
+The included Docker environment uses PHP 8.4-FPM, MariaDB 11.8, and Nginx. The frontend uses Tailwind CSS 4 and Vite 8.
+
+## Local setup
+
+Create an empty MySQL or MariaDB database, then copy and configure the environment file.
 
 ```bash
-composer require laravel/boost --dev
+# macOS / Linux
+cp .env.example .env
 
-php artisan boost:install
+# Windows PowerShell
+Copy-Item .env.example .env
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+For a host-native setup, update at least these values in `.env` to match your local database:
 
-## Contributing
+```dotenv
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ffgrocerytrack
+DB_USERNAME=your_database_user
+DB_PASSWORD=your_database_password
 
-## Code of Conduct
+# Local HTTP does not use secure cookies.
+SESSION_SECURE_COOKIE=false
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Install the dependencies, generate the application key, run migrations, build the frontend assets, and seed the initial roles and development account:
 
-## Security Vulnerabilities
+```bash
+composer run setup
+php artisan db:seed
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Start the development processes:
 
-## License
+```bash
+composer run dev
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This starts Laravel, the queue listener, Laravel Pail, and the Vite development server. If you prefer separate processes, use `php artisan serve` and `npm run dev`.
+
+### Development seed account
+
+`php artisan db:seed` creates a development-only Superadmin account:
+
+| Field | Value |
+| --- | --- |
+| Email | `user@email.com` |
+| Password | `12345678` |
+
+Change this password immediately after signing in. Never expose an environment that retains these seeded credentials.
+
+## Docker setup
+
+The Compose stack exposes the app at [http://localhost:8094](http://localhost:8094), phpMyAdmin at [http://localhost:8095](http://localhost:8095), and MariaDB on port `8306`.
+
+Copy `.env.example` to `.env`, then use these Docker-oriented settings:
+
+```dotenv
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8094
+
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=ffgrocerytrack
+DB_USERNAME=laravel
+DB_PASSWORD=secret
+
+SESSION_SECURE_COOKIE=false
+```
+
+Start the containers and finish the application setup:
+
+```bash
+docker compose up -d --build
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+```
+
+If MariaDB is still initialising and the migration cannot connect, wait briefly and rerun the migration command.
+
+The `app` image deliberately does not contain Node.js. The current web UI serves its tracked stylesheet from `public/css/app.css`, so a Vite build is not required just to run the Docker-served application. Use Node.js on the host (or in CI) when developing or rebuilding the frontend assets:
+
+```bash
+npm install
+npm run build
+```
+
+The Compose database usernames and passwords are local-development defaults only. Replace them with strong, separately managed values before any non-local deployment.
+
+## Telegram restock alerts
+
+Set the following values in `.env` to enable notifications:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Run an alert manually with:
+
+```bash
+php artisan telegram:send-restock-alert
+```
+
+Alerts include items whose available quantity is less than or equal to their restock threshold. The scheduler runs this command every weekday at 18:00 Malaysia time; the Docker `scheduler` service keeps it running automatically.
+
+## API
+
+The application exposes a token-authenticated API under `/api`, intended for the companion mobile client. Sign in through `POST /api/login`, then send the returned token in an `Authorization: Bearer <token>` header. Do not place tokens in URLs or source control.
+
+| Area | Endpoints |
+| --- | --- |
+| Authentication | `POST /api/login`, `POST /api/logout`, `GET /api/user` |
+| Inventory | `/api/inventori`, `/api/inventori/restok`, `/api/kategori` |
+| Requests | `/api/tuntutan`, `/api/tuntutan/{id}/status`, `/api/tuntutan/{id}/lampiran` |
+| Presets | `/api/tuntutan-preset` |
+| Superadmin | `/api/pengguna`, `/api/log-aktiviti` |
+
+Role checks are enforced by the application. See [routes/api.php](routes/api.php) and the API controller for the exact HTTP methods, validation rules, request fields, and response payloads.
+
+## Testing
+
+Run the test suite with:
+
+```bash
+composer run test
+```
+
+Tests use an in-memory SQLite database, so they do not modify the configured development database.
+
+## Production notes
+
+- Configure the web server document root as `public`.
+- Use HTTPS, set `APP_ENV=production`, set `APP_DEBUG=false`, and keep `SESSION_SECURE_COOKIE=true`.
+- Keep `.env`, Telegram credentials, database passwords, and API tokens out of source control.
+- Run `php artisan migrate --force` as part of deployment, and build frontend assets when your deployment includes frontend-source changes.
+- Ensure `storage` and `bootstrap/cache` are writable by the web-server user.
+- Keep the scheduler running with `php artisan schedule:work` or an equivalent scheduled-job runner.
+
+For shared-hosting deployments, the application can also load an environment file from a sibling `../private/.env` directory, keeping it outside the project web root.
