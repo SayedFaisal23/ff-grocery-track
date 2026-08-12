@@ -10,7 +10,7 @@ Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CS
 - Provides searchable, sortable inventory and restock views, including quick stock adjustments and expired-item totals.
 - Records category colours, audit logs, and inventory changes.
 - Supports three request types: **Pantry**, **General**, and weekly **Lunch** claims.
-- Guides Pantry and General requests through approval, receipt upload, and completion; receipt files can be JPEG, PNG, or PDF up to 5 MB.
+- Guides Pantry and General requests through payment-specific approval and document stages; documents can be JPEG, PNG, or PDF up to 5 MB.
 - Lets Superadmins manage users, categories, purchasing-platform and payment-method presets, and activity logs.
 - Sends optional Telegram reminders for items that are out of stock or at/below their restock threshold.
 
@@ -20,19 +20,24 @@ The application uses the `Asia/Kuala_Lumpur` timezone and is configured for Mala
 
 | Role | Access |
 | --- | --- |
-| **Superadmin** | Inventory and restock management, all purchase-request review, user management, categories, request presets, and activity logs. |
-| **Stocker** | Inventory and restock management, personal purchase-request history, new requests, and receipt uploads for approved Pantry/General requests. |
+| **Superadmin** | Inventory and restock management, all purchase-request review, company-transfer proof-of-payment uploads, user management, categories, request presets, and activity logs. |
+| **Stocker** | Inventory and restock management, personal purchase-request history, new requests, and required requester document uploads for approved Pantry/General requests. |
 | **Tracker** | Inventory and restock management only. |
 
 All application pages other than the login page require authentication.
 
 ## Purchase-request workflow
 
-1. A Stocker submits a Pantry, General, or weekly Lunch request.
-2. A Superadmin approves or rejects the request.
-3. A Pantry or General request may include one optional quotation/invoice supporting document before approval.
-4. An approved Pantry or General request remains pending until its owner uploads the purchase receipt.
-5. Uploading the receipt completes the request. The first Superadmin to open a completed purchase receipt is recorded in the activity log.
+Payment-method presets are categorised by a Superadmin as **Director CC** or **Company transfer**. Unconfigured existing payment presets cannot be used for a new request. `Lain-lain` always follows the **Own expenses** flow. Each submitted request stores its workflow category, so later preset edits do not alter its path.
+
+| Payment workflow | Before approval | After approval |
+| --- | --- | --- |
+| Director CC, invoice sent to account | Requester uploads an invoice | Completes immediately |
+| Director CC, invoice not sent to account | No document required | Requester uploads an invoice |
+| Own expenses | No document required | Requester uploads a receipt or invoice |
+| Company transfer | Requester uploads an invoice or quotation | Superadmin uploads proof of payment |
+
+Rejected requests are terminal. New documents are stored privately and may be opened by the requester or a Superadmin; document opening is audited for Superadmins. Historic requests retain the legacy approved-requester-receipt behavior.
 
 Lunch requests are submitted as daily entries for a selected week and are completed when the Superadmin records the decision.
 
@@ -167,11 +172,11 @@ The application exposes a token-authenticated API under `/api`, intended for the
 | --- | --- |
 | Authentication | `POST /api/login`, `POST /api/logout`, `GET /api/user` |
 | Inventory | `/api/inventori`, `/api/inventori/restok`, `/api/kategori` |
-| Requests | `/api/tuntutan`, `/api/tuntutan/{id}/status`, `POST /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/supporting-document`, `POST /api/tuntutan/{id}/detail-reviewed` |
+| Requests | `/api/tuntutan`, `/api/tuntutan/{id}/status`, `POST /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/lampiran`, `GET /api/tuntutan/{id}/supporting-document`, `POST /api/tuntutan/{id}/payment-proof`, `GET /api/tuntutan/{id}/payment-proof`, `POST /api/tuntutan/{id}/detail-reviewed` |
 | Presets | `/api/tuntutan-preset` |
 | Superadmin | `/api/pengguna`, `/api/log-aktiviti` |
 
-Use multipart form data to include the optional `purchase_attachment` (JPG, JPEG, PNG, or PDF; maximum 5 MB) when submitting a Pantry or General request. The final `attachment` receipt remains a separate upload after approval. Claim responses include `documents` metadata plus availability and authorised endpoint URLs for each document. Role checks are enforced by the application. See [routes/api.php](routes/api.php) and the API controller for the exact HTTP methods, validation rules, and response payloads.
+Use multipart form data for required documents (JPG, JPEG, PNG, or PDF; maximum 5 MB). A Director CC request requires `invoice_sent_to_account`; it requires `purchase_attachment` only when that value is true. Company transfer requires `purchase_attachment` before approval and a Superadmin-only `payment_proof_attachment` afterward. Own expenses and Director CC without an invoice sent to account require the requester `attachment` after approval. Claim responses include `workflow` (`type`, `stage`, `next_actor`, and `required_document`) plus `documents` metadata and authorised document URLs. API preset responses include `payment_workflow`; Stockers receive only configured payment choices, while Superadmins can also retrieve unconfigured presets to categorise them. Role checks are enforced by the application. See [routes/api.php](routes/api.php) and the API controller for the exact HTTP methods, validation rules, and response payloads.
 
 ## Testing
 

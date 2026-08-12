@@ -28,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
                 'awaiting_review' => false,
                 'awaiting_receipt_review' => false,
                 'awaiting_receipt_upload' => false,
+                'awaiting_requester_document_upload' => false,
+                'awaiting_payment_proof_upload' => false,
             ];
 
             if ($user !== null && $user->hasRole('Superadmin')) {
@@ -37,6 +39,9 @@ class AppServiceProvider extends ServiceProvider
                 $notifications['awaiting_receipt_review'] = Tuntutan::query()
                     ->awaitingReceiptReview()
                     ->exists();
+                $notifications['awaiting_payment_proof_upload'] = Tuntutan::query()
+                    ->awaitingPaymentProofUpload()
+                    ->exists();
             }
 
             if ($user !== null && $user->hasRole('Stocker')) {
@@ -44,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
                     ->where('user_id', $user->id)
                     ->awaitingReceiptUpload()
                     ->exists();
+                $notifications['awaiting_requester_document_upload'] = $notifications['awaiting_receipt_upload'];
             }
 
             $view->with('purchaseRequestNotifications', $notifications);

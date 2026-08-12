@@ -10,8 +10,13 @@ class Tuntutan extends Model
 {
     public const OTHER_PAYMENT_METHOD = 'Lain-lain';
     public const OTHER_PAYMENT_METHOD_DETAIL = 'Own expenses';
+    public const PAYMENT_WORKFLOW_LEGACY = 'legacy';
+    public const PAYMENT_WORKFLOW_DIRECTOR_CC = 'director_cc';
+    public const PAYMENT_WORKFLOW_COMPANY_TRANSFER = 'company_transfer';
+    public const PAYMENT_WORKFLOW_OWN_EXPENSES = 'own_expenses';
     public const DOCUMENT_PURCHASE_ATTACHMENT = 'purchase_attachment';
     public const DOCUMENT_ATTACHMENT = 'attachment';
+    public const DOCUMENT_PAYMENT_PROOF_ATTACHMENT = 'payment_proof_attachment';
     public const PRIVATE_DOCUMENT_PREFIX = 'claim-documents/';
 
     /** @var array<int, string> */
@@ -20,6 +25,8 @@ class Tuntutan extends Model
     /** @var array<int, string> */
     public const FILTERABLE_WORKFLOW_STATUSES = [
         'submitted',
+        'requester_document_required',
+        'payment_proof_required',
         'receipt_required',
         'completed',
         'rejected',
@@ -38,10 +45,13 @@ class Tuntutan extends Model
         'status',
         'attachment',
         'purchase_attachment',
+        'payment_proof_attachment',
         'receipt_viewed_by',
         'receipt_viewed_at',
         'purchase_attachment_viewed_by',
         'purchase_attachment_viewed_at',
+        'payment_proof_attachment_viewed_by',
+        'payment_proof_attachment_viewed_at',
         'attachment_viewed_by',
         'attachment_viewed_at',
         'latest_attachment_downloaded_by',
@@ -56,6 +66,7 @@ class Tuntutan extends Model
         'total_item_amount',
         'payment_method',
         'other_payment_method',
+        'payment_workflow',
         'invoice_sent_to_account',
         'date_receive',
         'approval_result',
@@ -73,6 +84,7 @@ class Tuntutan extends Model
         'reviewed_at' => 'datetime',
         'receipt_viewed_at' => 'datetime',
         'purchase_attachment_viewed_at' => 'datetime',
+        'payment_proof_attachment_viewed_at' => 'datetime',
         'attachment_viewed_at' => 'datetime',
         'latest_attachment_downloaded_at' => 'datetime',
         'claim_details_viewed_at' => 'datetime',
@@ -116,6 +128,14 @@ class Tuntutan extends Model
     public function attachmentViewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'attachment_viewed_by');
+    }
+
+    /**
+     * Get the Superadmin who first opened a company payment proof.
+     */
+    public function paymentProofAttachmentViewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_proof_attachment_viewed_by');
     }
 
     /**
@@ -189,6 +209,7 @@ class Tuntutan extends Model
         return in_array($document, [
             self::DOCUMENT_PURCHASE_ATTACHMENT,
             self::DOCUMENT_ATTACHMENT,
+            self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT,
         ], true);
     }
 
@@ -205,6 +226,10 @@ class Tuntutan extends Model
             self::DOCUMENT_ATTACHMENT => [
                 'viewed_by' => 'attachment_viewed_by',
                 'viewed_at' => 'attachment_viewed_at',
+            ],
+            self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT => [
+                'viewed_by' => 'payment_proof_attachment_viewed_by',
+                'viewed_at' => 'payment_proof_attachment_viewed_at',
             ],
             default => throw new \InvalidArgumentException('Unsupported claim document.'),
         };
@@ -227,14 +252,131 @@ class Tuntutan extends Model
     }
 
     /**
-     * Determine whether the request owner can upload the required receipt.
+     * Return the immutable workflow snapshot with its currently actionable
+     * stage. Status remains backwards compatible with historic records.
+     *
+     * @return array{type: string, stage: string, next_actor: string|null, required_document: string|null}
+     */
+    public function workflow(): array
+    {
+        $type = $this->paymentWorkflow();
+
+        if ($this->approval_result === 'Rejected') {
+            return [
+                'type' => $type,
+                'stage' => 'rejected',
+                'next_actor' => null,
+                'required_document' => null,
+            ];
+        }
+
+        if ($this->canBeReviewed()) {
+            return [
+                'type' => $type,
+                'stage' => 'awaiting_approval',
+                'next_actor' => 'superadmin',
+                'required_document' => null,
+            ];
+        }
+
+        if ($this->canUploadAttachment()) {
+            return [
+                'type' => $type,
+                'stage' => 'awaiting_requester_document',
+                'next_actor' => 'requester',
+                'required_document' => self::DOCUMENT_ATTACHMENT,
+            ];
+        }
+
+        if ($this->canUploadPaymentProof()) {
+            return [
+                'type' => $type,
+                'stage' => 'awaiting_payment_proof',
+                'next_actor' => 'superadmin',
+                'required_document' => self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT,
+            ];
+        }
+
+        return [
+            'type' => $type,
+            'stage' => 'completed',
+            'next_actor' => null,
+            'required_document' => null,
+        ];
+    }
+
+    /**
+     * Return the stored workflow or a legacy default for historic records.
+     */
+    public function paymentWorkflow(): string
+    {
+        return in_array($this->payment_workflow, [
+            self::PAYMENT_WORKFLOW_DIRECTOR_CC,
+            self::PAYMENT_WORKFLOW_COMPANY_TRANSFER,
+            self::PAYMENT_WORKFLOW_OWN_EXPENSES,
+            self::PAYMENT_WORKFLOW_LEGACY,
+        ], true)
+            ? $this->payment_workflow
+            : self::PAYMENT_WORKFLOW_LEGACY;
+    }
+
+    public function isDirectorCreditCardPayment(): bool
+    {
+        return $this->paymentWorkflow() === self::PAYMENT_WORKFLOW_DIRECTOR_CC;
+    }
+
+    public function isCompanyTransferPayment(): bool
+    {
+        return $this->paymentWorkflow() === self::PAYMENT_WORKFLOW_COMPANY_TRANSFER;
+    }
+
+    public function isOwnExpensesPayment(): bool
+    {
+        return $this->paymentWorkflow() === self::PAYMENT_WORKFLOW_OWN_EXPENSES;
+    }
+
+    /**
+     * Determine whether submission must include an invoice or quotation.
+     */
+    public function requiresPreApprovalDocument(): bool
+    {
+        return $this->isCompanyTransferPayment()
+            || ($this->isDirectorCreditCardPayment() && $this->invoice_sent_to_account);
+    }
+
+    /**
+     * Determine whether the request owner can upload the final document.
      */
     public function canUploadAttachment(): bool
     {
+        if (! $this->isPurchaseRequest()
+            || $this->status !== 'Pending'
+            || $this->approval_result !== 'Approved'
+            || $this->attachment !== null) {
+            return false;
+        }
+
+        return in_array($this->paymentWorkflow(), [
+            self::PAYMENT_WORKFLOW_LEGACY,
+            self::PAYMENT_WORKFLOW_DIRECTOR_CC,
+            self::PAYMENT_WORKFLOW_OWN_EXPENSES,
+        ], true)
+            && ! ($this->isDirectorCreditCardPayment()
+                && $this->invoice_sent_to_account
+                && $this->purchase_attachment !== null);
+    }
+
+    /**
+     * Determine whether a Superadmin must upload company payment evidence.
+     */
+    public function canUploadPaymentProof(): bool
+    {
         return $this->isPurchaseRequest()
+            && $this->isCompanyTransferPayment()
             && $this->status === 'Pending'
             && $this->approval_result === 'Approved'
-            && $this->attachment === null;
+            && $this->purchase_attachment !== null
+            && $this->payment_proof_attachment === null;
     }
 
     /**
@@ -248,16 +390,55 @@ class Tuntutan extends Model
     }
 
     /**
-     * Limit the query to approved purchase requests awaiting the requester's
-     * receipt upload.
+     * Limit the query to approved purchase requests requiring the requester
+     * to upload a receipt or invoice. The legacy branch preserves existing
+     * pre-migration records.
      */
-    public function scopeAwaitingReceiptUpload(Builder $query): Builder
+    public function scopeAwaitingRequesterDocumentUpload(Builder $query): Builder
     {
         return $query
             ->whereIn('tag', ['Pantry', 'General'])
             ->where('status', 'Pending')
             ->where('approval_result', 'Approved')
-            ->whereNull('attachment');
+            ->whereNull('attachment')
+            ->where(function (Builder $workflowQuery): void {
+                $workflowQuery
+                    ->whereNull('payment_workflow')
+                    ->orWhere('payment_workflow', self::PAYMENT_WORKFLOW_LEGACY)
+                    ->orWhere('payment_workflow', self::PAYMENT_WORKFLOW_OWN_EXPENSES)
+                    ->orWhere(function (Builder $directorQuery): void {
+                        $directorQuery
+                            ->where('payment_workflow', self::PAYMENT_WORKFLOW_DIRECTOR_CC)
+                            ->where(function (Builder $invoiceQuery): void {
+                                $invoiceQuery
+                                    ->whereNull('invoice_sent_to_account')
+                                    ->orWhere('invoice_sent_to_account', false);
+                            });
+                    });
+            });
+    }
+
+    /**
+     * Backwards-compatible alias for existing consumers and filters.
+     */
+    public function scopeAwaitingReceiptUpload(Builder $query): Builder
+    {
+        return $query->awaitingRequesterDocumentUpload();
+    }
+
+    /**
+     * Limit the query to approved company-transfer requests waiting for the
+     * Superadmin's proof of payment.
+     */
+    public function scopeAwaitingPaymentProofUpload(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('tag', ['Pantry', 'General'])
+            ->where('payment_workflow', self::PAYMENT_WORKFLOW_COMPANY_TRANSFER)
+            ->where('status', 'Pending')
+            ->where('approval_result', 'Approved')
+            ->whereNotNull('purchase_attachment')
+            ->whereNull('payment_proof_attachment');
     }
 
     /**
@@ -294,7 +475,8 @@ class Tuntutan extends Model
     {
         return match ($status) {
             'submitted' => $query->awaitingReview(),
-            'receipt_required' => $query->awaitingReceiptUpload(),
+            'requester_document_required', 'receipt_required' => $query->awaitingRequesterDocumentUpload(),
+            'payment_proof_required' => $query->awaitingPaymentProofUpload(),
             'rejected' => $query->where('approval_result', 'Rejected'),
             'completed' => $query->whereNot(function (Builder $statusQuery): void {
                 $statusQuery
@@ -302,7 +484,10 @@ class Tuntutan extends Model
                         $reviewQuery->awaitingReview();
                     })
                     ->orWhere(function (Builder $receiptQuery): void {
-                        $receiptQuery->awaitingReceiptUpload();
+                        $receiptQuery->awaitingRequesterDocumentUpload();
+                    })
+                    ->orWhere(function (Builder $paymentProofQuery): void {
+                        $paymentProofQuery->awaitingPaymentProofUpload();
                     })
                     ->orWhere('approval_result', 'Rejected');
             }),
@@ -327,10 +512,22 @@ class Tuntutan extends Model
         }
 
         if ($this->canUploadAttachment()) {
+            $documentLabel = $this->isDirectorCreditCardPayment()
+                ? 'invoice'
+                : ($this->isOwnExpensesPayment() ? 'receipt or invoice' : 'receipt');
+
             return [
-                'label' => 'Approved - receipt required',
+                'label' => 'Approved - requester document required',
                 'tone' => 'primary',
-                'message' => 'The requester must upload the receipt to complete this claim.',
+                'message' => "The requester must upload the {$documentLabel} to complete this claim.",
+            ];
+        }
+
+        if ($this->canUploadPaymentProof()) {
+            return [
+                'label' => 'Approved - payment proof required',
+                'tone' => 'primary',
+                'message' => 'A Superadmin must upload the company proof of payment to complete this claim.',
             ];
         }
 

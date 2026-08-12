@@ -167,6 +167,10 @@ button, input, select, textarea {
     background: var(--color-primary);
 }
 
+.nav-notification-dot-payment-proof {
+    background: var(--color-success);
+}
+
 .nav-item:hover, .nav-item.active {
     color: var(--text-main);
     background-color: var(--bg-surface-hover);
@@ -1585,8 +1589,20 @@ html[data-theme="light"] .badge-general {
     margin-bottom: 1.25rem;
 }
 
+.preset-entry-form-payment {
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 0.75fr) auto;
+}
+
+.preset-workflow-field {
+    min-width: 0;
+}
+
 .preset-table {
     min-width: 340px;
+}
+
+.preset-table-payment {
+    min-width: 540px;
 }
 
 .preset-reorder-header,

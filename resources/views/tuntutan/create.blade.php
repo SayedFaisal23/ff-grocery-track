@@ -3,6 +3,12 @@
 @section('title', 'Hantar Permohonan')
 
 @section('content')
+@php
+    $configuredPaymentMethods = $paymentMethods->filter(
+        static fn ($paymentMethod): bool => in_array($paymentMethod->payment_workflow, ['director_cc', 'company_transfer'], true),
+    );
+@endphp
+
 <div class="page-header">
     <div class="page-title">
         <h1>Borang Permohonan Pembelian</h1>
@@ -50,10 +56,10 @@
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Lengkapkan semua maklumat pembelian sebelum membuat pesanan.</p>
             </div>
 
-            @if($platforms->isEmpty() || $paymentMethods->isEmpty())
+            @if($platforms->isEmpty() || $configuredPaymentMethods->isEmpty())
                 <div class="alert alert-danger" style="margin-bottom: 1.25rem;">
                     <i class="fa-solid fa-circle-exclamation"></i>
-                    Superadmin perlu menetapkan pilihan platform pembelian dan kaedah bayaran terlebih dahulu.
+                    Superadmin perlu menetapkan pilihan platform pembelian dan kaedah bayaran yang mempunyai aliran kerja terlebih dahulu.
                 </div>
             @endif
 
@@ -122,10 +128,18 @@
                     <label class="form-label" for="payment_method">Saluran / Kaedah Bayaran</label>
                     <select id="payment_method" name="payment_method" class="form-control @error('payment_method') is-invalid @enderror" required>
                         <option value="">Pilih kaedah bayaran</option>
-                        @foreach($paymentMethods as $paymentMethod)
-                            <option value="{{ $paymentMethod->name }}" @selected(old('payment_method') === $paymentMethod->name)>{{ $paymentMethod->name }}</option>
+                        @foreach($configuredPaymentMethods as $paymentMethod)
+                            <option
+                                value="{{ $paymentMethod->name }}"
+                                data-payment-workflow="{{ $paymentMethod->payment_workflow }}"
+                                @selected(old('payment_method') === $paymentMethod->name)
+                            >{{ $paymentMethod->name }}</option>
                         @endforeach
-                        <option value="{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}" @selected(old('payment_method') === \App\Models\Tuntutan::OTHER_PAYMENT_METHOD)>{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}</option>
+                        <option
+                            value="{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}"
+                            data-payment-workflow="own_expenses"
+                            @selected(old('payment_method') === \App\Models\Tuntutan::OTHER_PAYMENT_METHOD)
+                        >{{ \App\Models\Tuntutan::OTHER_PAYMENT_METHOD }}</option>
                     </select>
                     @error('payment_method')
                         <div style="color: var(--color-danger); font-size: 0.8rem; margin-top: 4px;">{{ $message }}</div>
@@ -142,9 +156,9 @@
             </div>
 
             <div class="form-row">
-                <div class="form-group">
+                <div id="director-credit-card-fields" class="form-group" hidden>
                     <label class="form-label" for="invoice_sent_to_account">Invois Dihantar ke Akaun?</label>
-                    <select id="invoice_sent_to_account" name="invoice_sent_to_account" class="form-control @error('invoice_sent_to_account') is-invalid @enderror" required>
+                    <select id="invoice_sent_to_account" name="invoice_sent_to_account" class="form-control @error('invoice_sent_to_account') is-invalid @enderror">
                         <option value="" @selected(old('invoice_sent_to_account') === null)>Pilih jawapan</option>
                         <option value="1" @selected((string) old('invoice_sent_to_account') === '1')>Ya</option>
                         <option value="0" @selected((string) old('invoice_sent_to_account') === '0')>Tidak</option>
@@ -162,14 +176,16 @@
                 </div>
             </div>
 
-            <div class="request-supporting-document" data-file-upload-area>
+            <p id="payment-workflow-hint" class="request-supporting-document-help" role="status" aria-live="polite" hidden></p>
+
+            <div id="purchase-attachment-group" class="request-supporting-document" data-file-upload-area hidden>
                 <label for="purchase_attachment" class="form-label request-supporting-document-label">
                     <i class="fa-solid fa-paperclip" aria-hidden="true"></i>
-                    Invoice/Quotation
-                    <span>(Optional)</span>
+                    <span id="purchase-attachment-label">Invoice/Quotation</span>
+                    <span id="purchase-attachment-required">(Required)</span>
                 </label>
                 <p id="purchase-attachment-help" class="request-supporting-document-help">
-                    Muat naik quotation atau invois untuk membantu semakan permohonan ini.
+                    Muat naik dokumen yang diperlukan sebelum permohonan dihantar.
                 </p>
                 <div
                     class="claim-file-dropzone"
@@ -295,6 +311,14 @@
     const paymentMethodSelect = document.getElementById('payment_method');
     const otherPaymentMethodGroup = document.getElementById('other-payment-method-group');
     const otherPaymentMethodInput = document.getElementById('other_payment_method');
+    const directorCreditCardFields = document.getElementById('director-credit-card-fields');
+    const invoiceSentToAccountSelect = document.getElementById('invoice_sent_to_account');
+    const paymentWorkflowHint = document.getElementById('payment-workflow-hint');
+    const purchaseAttachmentGroup = document.getElementById('purchase-attachment-group');
+    const purchaseAttachmentInput = document.getElementById('purchase_attachment');
+    const purchaseAttachmentLabel = document.getElementById('purchase-attachment-label');
+    const purchaseAttachmentRequired = document.getElementById('purchase-attachment-required');
+    const purchaseAttachmentHelp = document.getElementById('purchase-attachment-help');
 
     function updateOtherPaymentMethodField() {
         const isOtherPaymentMethod = paymentMethodSelect.value === @json(\App\Models\Tuntutan::OTHER_PAYMENT_METHOD);
@@ -304,6 +328,70 @@
         otherPaymentMethodInput.disabled = !isOtherPaymentMethod || !isRequestEnabled;
         otherPaymentMethodInput.value = isOtherPaymentMethod ? @json(\App\Models\Tuntutan::OTHER_PAYMENT_METHOD_DETAIL) : '';
         otherPaymentMethodInput.required = false;
+    }
+
+    function selectedPaymentWorkflow() {
+        return paymentMethodSelect.options[paymentMethodSelect.selectedIndex]?.dataset.paymentWorkflow || '';
+    }
+
+    function updatePurchaseWorkflowFields() {
+        const workflow = selectedPaymentWorkflow();
+        const isRequestEnabled = !paymentMethodSelect.disabled;
+        const isDirectorCreditCard = workflow === 'director_cc';
+        const invoiceSentToAccount = invoiceSentToAccountSelect.value === '1';
+        const requiresPreApprovalDocument = workflow === 'company_transfer'
+            || (isDirectorCreditCard && invoiceSentToAccount);
+
+        directorCreditCardFields.hidden = !isDirectorCreditCard;
+        invoiceSentToAccountSelect.disabled = !isDirectorCreditCard || !isRequestEnabled;
+        invoiceSentToAccountSelect.required = isDirectorCreditCard && isRequestEnabled;
+
+        if (!isDirectorCreditCard) {
+            invoiceSentToAccountSelect.value = '';
+        }
+
+        purchaseAttachmentGroup.hidden = !requiresPreApprovalDocument;
+        purchaseAttachmentInput.disabled = !requiresPreApprovalDocument || !isRequestEnabled;
+        purchaseAttachmentInput.required = requiresPreApprovalDocument && isRequestEnabled;
+
+        if (workflow === 'company_transfer') {
+            purchaseAttachmentLabel.textContent = 'Invoice/Quotation';
+            purchaseAttachmentHelp.textContent = 'Muat naik invois atau quotation sebelum permohonan dihantar. Selepas diluluskan, Superadmin akan memuat naik bukti pembayaran.';
+            purchaseAttachmentRequired.textContent = '(Required)';
+            paymentWorkflowHint.hidden = false;
+            paymentWorkflowHint.textContent = 'Invoice atau quotation diperlukan sebelum semakan Superadmin.';
+            return;
+        }
+
+        if (isDirectorCreditCard && invoiceSentToAccount) {
+            purchaseAttachmentLabel.textContent = 'Invoice';
+            purchaseAttachmentHelp.textContent = 'Muat naik invois yang telah dihantar ke akaun sebelum permohonan dihantar.';
+            purchaseAttachmentRequired.textContent = '(Required)';
+            paymentWorkflowHint.hidden = false;
+            paymentWorkflowHint.textContent = 'Invois diperlukan sebelum semakan Superadmin.';
+            return;
+        }
+
+        purchaseAttachmentLabel.textContent = 'Invoice/Quotation';
+        purchaseAttachmentHelp.textContent = 'Muat naik dokumen yang diperlukan sebelum permohonan dihantar.';
+        purchaseAttachmentRequired.textContent = '(Required)';
+
+        if (isDirectorCreditCard) {
+            paymentWorkflowHint.hidden = false;
+            paymentWorkflowHint.textContent = invoiceSentToAccountSelect.value === '0'
+                ? 'Invois akan diminta daripada pemohon selepas kelulusan.'
+                : 'Pilih sama ada invois telah dihantar ke akaun.';
+            return;
+        }
+
+        if (workflow === 'own_expenses') {
+            paymentWorkflowHint.hidden = false;
+            paymentWorkflowHint.textContent = 'Resit atau invois akan diminta daripada pemohon selepas kelulusan.';
+            return;
+        }
+
+        paymentWorkflowHint.hidden = true;
+        paymentWorkflowHint.textContent = '';
     }
 
     function setSectionEnabled(section, enabled) {
@@ -325,10 +413,15 @@
         setSectionEnabled(lunchSection, isLunch);
         attachmentInput.disabled = !isLunch;
         updateOtherPaymentMethodField();
+        updatePurchaseWorkflowFields();
     }
 
     radios.forEach((radio) => radio.addEventListener('change', onTagChange));
-    paymentMethodSelect.addEventListener('change', updateOtherPaymentMethodField);
+    paymentMethodSelect.addEventListener('change', () => {
+        updateOtherPaymentMethodField();
+        updatePurchaseWorkflowFields();
+    });
+    invoiceSentToAccountSelect.addEventListener('change', updatePurchaseWorkflowFields);
 
     const oldLunchData = {
         dates: @json(old('lunch_dates', [])),

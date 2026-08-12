@@ -11,6 +11,11 @@
 </div>
 
 @php
+    $paymentWorkflowOptions = [
+        'director_cc' => 'Director credit card',
+        'company_transfer' => 'Company transfer',
+    ];
+
     $presetGroups = [
         \App\Models\TuntutanPreset::TYPE_PURCHASE_PLATFORM => [
             'title' => 'Platform Pembelian',
@@ -19,7 +24,7 @@
         ],
         \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD => [
             'title' => 'Saluran / Kaedah Bayaran',
-            'description' => 'Contoh: Bank transfer, kad kredit, tunai.',
+            'description' => 'Tetapkan aliran kerja setiap kaedah bayaran. Pilihan tanpa aliran kerja tidak boleh digunakan dalam borang baharu.',
             'items' => $paymentMethods,
         ],
     ];
@@ -33,7 +38,7 @@
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">{{ $group['description'] }}</p>
             </div>
 
-            <form action="{{ route('tuntutan-preset.store') }}" method="POST" class="preset-entry-form">
+            <form action="{{ route('tuntutan-preset.store') }}" method="POST" class="preset-entry-form {{ $type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD ? 'preset-entry-form-payment' : '' }}">
                 @csrf
                 <input type="hidden" name="type" value="{{ $type }}">
                 <div style="flex: 1;">
@@ -49,6 +54,22 @@
                         required
                     >
                 </div>
+                @if($type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD)
+                    <div class="preset-workflow-field">
+                        <label for="new-{{ $type }}-workflow" class="sr-only">Aliran kerja bayaran</label>
+                        <select
+                            id="new-{{ $type }}-workflow"
+                            name="payment_workflow"
+                            class="form-control @error('payment_workflow') is-invalid @enderror"
+                            required
+                        >
+                            <option value="">Pilih aliran kerja</option>
+                            @foreach($paymentWorkflowOptions as $workflow => $label)
+                                <option value="{{ $workflow }}" @selected(old('type') === $type && old('payment_workflow') === $workflow)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Tambah</button>
             </form>
 
@@ -56,13 +77,25 @@
                 @error('name')
                     <div style="color: var(--color-danger); font-size: 0.8rem; margin: -0.75rem 0 1rem;">{{ $message }}</div>
                 @enderror
+                @error('payment_workflow')
+                    <div style="color: var(--color-danger); font-size: 0.8rem; margin: -0.75rem 0 1rem;">{{ $message }}</div>
+                @enderror
+            @endif
+
+            @if($type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD)
+                <p style="color: var(--text-dark); font-size: 0.78rem; margin: -0.35rem 0 1rem;">
+                    <strong>Lain-lain</strong> sentiasa menggunakan aliran <strong>Own expenses</strong> dan tidak perlu ditambah di sini.
+                </p>
             @endif
 
             <div class="table-wrapper preset-table-wrapper">
-                <table class="custom-table preset-table" data-preset-reorder-url="{{ route('tuntutan-preset.reorder') }}">
+                <table class="custom-table preset-table {{ $type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD ? 'preset-table-payment' : '' }}" data-preset-reorder-url="{{ route('tuntutan-preset.reorder') }}">
                     <thead>
                         <tr>
                             <th>Pilihan</th>
+                            @if($type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD)
+                                <th>Aliran kerja</th>
+                            @endif
                             <th class="preset-reorder-header">Susun</th>
                             <th style="text-align: right;">Tindakan</th>
                         </tr>
@@ -82,6 +115,23 @@
                                         required
                                     >
                                 </td>
+                                @if($type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD)
+                                    <td>
+                                        <label for="payment-workflow-{{ $preset->id }}" class="sr-only">Aliran kerja untuk {{ $preset->name }}</label>
+                                        <select
+                                            id="payment-workflow-{{ $preset->id }}"
+                                            name="payment_workflow"
+                                            form="preset-update-{{ $preset->id }}"
+                                            class="form-control"
+                                            required
+                                        >
+                                            <option value="">Belum ditetapkan</option>
+                                            @foreach($paymentWorkflowOptions as $workflow => $label)
+                                                <option value="{{ $workflow }}" @selected($preset->payment_workflow === $workflow)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                @endif
                                 <td class="preset-reorder-cell">
                                     <button
                                         type="button"
@@ -117,7 +167,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                                <td colspan="{{ $type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD ? 4 : 3 }}" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
                                     Belum ada pilihan. Tambah pilihan sebelum Stocker menghantar permohonan.
                                 </td>
                             </tr>

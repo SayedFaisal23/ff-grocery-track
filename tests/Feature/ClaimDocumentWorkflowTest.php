@@ -24,7 +24,7 @@ class ClaimDocumentWorkflowTest extends TestCase
         Role::create(['name' => 'Tracker']);
     }
 
-    public function test_purchase_request_keeps_a_private_supporting_document_and_requires_a_later_receipt(): void
+    public function test_company_transfer_keeps_a_private_supporting_document_and_requires_admin_payment_proof(): void
     {
         Storage::fake('local');
 
@@ -54,26 +54,20 @@ class ClaimDocumentWorkflowTest extends TestCase
         $claim->refresh();
         $this->assertSame('Pending', $claim->status);
         $this->assertSame('Approved', $claim->approval_result);
-        $this->assertTrue($claim->canUploadAttachment());
+        $this->assertFalse($claim->canUploadAttachment());
 
-        $this->actingAs($stocker)
-            ->get(route('tuntutan.index'))
-            ->assertOk()
-            ->assertSee('data-file-submit', false)
-            ->assertSee('aria-disabled="true"', false);
-
-        $this->actingAs($stocker)
-            ->post(route('tuntutan.attachment.store', $claim), [
-                'attachment' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
+        $this->actingAs($superadmin)
+            ->post(route('tuntutan.payment-proof.store', $claim), [
+                'payment_proof_attachment' => UploadedFile::fake()->create('payment-proof.pdf', 100, 'application/pdf'),
             ])
             ->assertRedirect();
 
         $claim->refresh();
         $this->assertSame('Completed', $claim->status);
-        $this->assertNotNull($claim->attachment);
-        $this->assertNotSame($claim->purchase_attachment, $claim->attachment);
-        $this->assertStringStartsWith('claim-documents/', $claim->attachment);
-        Storage::disk('local')->assertExists($claim->attachment);
+        $this->assertNotNull($claim->payment_proof_attachment);
+        $this->assertNotSame($claim->purchase_attachment, $claim->payment_proof_attachment);
+        $this->assertStringStartsWith('claim-documents/', $claim->payment_proof_attachment);
+        Storage::disk('local')->assertExists($claim->payment_proof_attachment);
     }
 
     public function test_superadmin_document_opening_tracks_each_private_file_and_latest_access(): void
@@ -236,6 +230,7 @@ class ClaimDocumentWorkflowTest extends TestCase
         TuntutanPreset::create([
             'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
             'name' => 'Bank Transfer',
+            'payment_workflow' => 'company_transfer',
             'sort_order' => 1,
         ]);
     }
@@ -256,7 +251,6 @@ class ClaimDocumentWorkflowTest extends TestCase
             'purchase_platform' => 'Shopee',
             'total_item_amount' => 45.90,
             'payment_method' => 'Bank Transfer',
-            'invoice_sent_to_account' => 1,
             'date_receive' => $today,
         ], $overrides);
     }

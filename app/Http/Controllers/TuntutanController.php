@@ -104,6 +104,19 @@ class TuntutanController extends Controller
     }
 
     /**
+     * Serve the proof of payment uploaded by a Superadmin for a company
+     * transfer request through the same authorised document flow.
+     */
+    public function showPaymentProofAttachment(Tuntutan $tuntutan, ClaimDocumentService $claimDocuments)
+    {
+        return $this->showDocument(
+            $tuntutan,
+            Tuntutan::DOCUMENT_PAYMENT_PROOF_ATTACHMENT,
+            $claimDocuments,
+        );
+    }
+
+    /**
      * Stream an authorised claim document after validating its known storage
      * location. The service records Superadmin views only after existence is
      * established, so missing files never mutate claim audit data.
@@ -144,7 +157,7 @@ class TuntutanController extends Controller
     {
         $user = Auth::user();
 
-        if ($tuntutan->user_id !== $user->id) {
+        if (! $user->hasRole('Stocker') || $tuntutan->user_id !== $user->id) {
             abort(403);
         }
 
@@ -182,7 +195,59 @@ class TuntutanController extends Controller
             'data_baru' => $claim->toArray(),
         ]);
 
-        return back()->with('success', 'Lampiran berjaya dimuat naik. Permohonan telah lengkap.');
+        return back()->with('success', 'Dokumen berjaya dimuat naik. Permohonan telah lengkap.');
+    }
+
+    /**
+     * Store one company-transfer proof of payment after a request has been
+     * approved. Only Superadmins can complete this final workflow step.
+     */
+    public function uploadPaymentProof(
+        Request $request,
+        Tuntutan $tuntutan,
+        ClaimDocumentService $claimDocuments,
+    ) {
+        $user = Auth::user();
+
+        if (! $user->hasRole('Superadmin')) {
+            abort(403);
+        }
+
+        $request->validate([
+            'payment_proof_attachment' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+        ]);
+
+        $result = DB::transaction(function () use ($request, $tuntutan, $claimDocuments) {
+            $claim = Tuntutan::query()->lockForUpdate()->findOrFail($tuntutan->id);
+
+            if (! $claim->canUploadPaymentProof()) {
+                return null;
+            }
+
+            $oldData = $claim->toArray();
+            $claim->update([
+                'payment_proof_attachment' => $claimDocuments->store($request->file('payment_proof_attachment')),
+                'status' => 'Completed',
+            ]);
+
+            return [$oldData, $claim];
+        });
+
+        if ($result === null) {
+            return back()->with('error', 'Bukti pembayaran hanya boleh dimuat naik sekali selepas permohonan transfer syarikat diluluskan.');
+        }
+
+        [$oldData, $claim] = $result;
+
+        LogAktiviti::create([
+            'user_id' => $user->id,
+            'aktiviti' => "{$user->name} telah memuat naik bukti pembayaran dan melengkapkan permohonan ID {$claim->id} ({$claim->nama_item}).",
+            'item_id' => null,
+            'data_lama' => $oldData,
+            'data_baru' => $claim->toArray(),
+        ]);
+
+        return back()->with('success', 'Bukti pembayaran berjaya dimuat naik. Permohonan telah lengkap.');
     }
 
     /**
@@ -233,14 +298,8 @@ class TuntutanController extends Controller
             }
 
             $oldData = $claim->toArray();
-            $isApprovedPurchaseRequest = $validated['approval_result'] === 'Approved'
-                && $claim->isPurchaseRequest();
-            $isHistoricalRequestWithAttachment = $isApprovedPurchaseRequest && $claim->attachment !== null;
-
             $claim->update([
-                'status' => $isApprovedPurchaseRequest && ! $isHistoricalRequestWithAttachment
-                    ? 'Pending'
-                    : 'Completed',
+                'status' => $this->statusAfterReview($claim, $validated['approval_result']),
                 'approval_result' => $validated['approval_result'],
                 'reviewed_by' => $user->id,
                 'reviewed_at' => now(),
@@ -264,9 +323,11 @@ class TuntutanController extends Controller
             'data_baru' => $claim->toArray(),
         ]);
 
-        $message = $claim->status === 'Pending'
-            ? 'Permohonan diluluskan. Pemohon boleh memuat naik lampiran.'
-            : 'Keputusan permohonan berjaya direkodkan.';
+        $message = match (true) {
+            $claim->canUploadAttachment() => 'Permohonan diluluskan. Pemohon boleh memuat naik dokumen yang diperlukan.',
+            $claim->canUploadPaymentProof() => 'Permohonan diluluskan. Superadmin perlu memuat naik bukti pembayaran.',
+            default => 'Keputusan permohonan berjaya direkodkan.',
+        };
 
         return back()->with('success', $message);
     }
@@ -310,7 +371,8 @@ class TuntutanController extends Controller
             $otherPaymentMethodRules[] = Rule::in([Tuntutan::OTHER_PAYMENT_METHOD_DETAIL]);
         } else {
             $paymentMethodRules[] = Rule::exists('tuntutan_presets', 'name')
-                ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD);
+                ->where('type', TuntutanPreset::TYPE_PAYMENT_METHOD)
+                ->whereIn('payment_workflow', TuntutanPreset::paymentWorkflows());
             $otherPaymentMethodRules[] = 'prohibited';
         }
 
@@ -330,15 +392,48 @@ class TuntutanController extends Controller
             'total_item_amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => $paymentMethodRules,
             'other_payment_method' => $otherPaymentMethodRules,
-            'invoice_sent_to_account' => ['required', 'boolean'],
+            'invoice_sent_to_account' => ['nullable', 'boolean'],
             'date_receive' => ['required', 'date', 'after_or_equal:request_date'],
             'attachment' => ['prohibited'],
-            'purchase_attachment' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+            'payment_proof_attachment' => ['prohibited'],
+            'payment_workflow' => ['prohibited'],
         ], [
             'purchase_platform.exists' => 'Sila pilih platform pembelian yang telah ditetapkan oleh Superadmin.',
-            'payment_method.exists' => 'Please select a payment method configured by the Superadmin.',
+            'payment_method.exists' => 'Sila pilih kaedah bayaran yang telah dikonfigurasi oleh Superadmin.',
             'other_payment_method.in' => 'Sila nyatakan kaedah pembayaran',
             'date_receive.after_or_equal' => 'Tarikh terima tidak boleh sebelum tarikh permohonan.',
+        ]);
+
+        $paymentWorkflow = $isOtherPaymentMethod
+            ? Tuntutan::PAYMENT_WORKFLOW_OWN_EXPENSES
+            : TuntutanPreset::query()
+                ->forType(TuntutanPreset::TYPE_PAYMENT_METHOD)
+                ->where('name', $validated['payment_method'])
+                ->whereIn('payment_workflow', TuntutanPreset::paymentWorkflows())
+                ->value('payment_workflow');
+
+        if (! is_string($paymentWorkflow) || $paymentWorkflow === '') {
+            throw new HttpResponseException(
+                back()->withInput()->withErrors(['payment_method' => 'Sila pilih kaedah bayaran yang telah dikonfigurasi oleh Superadmin.'])
+            );
+        }
+
+        $isDirectorCreditCard = $paymentWorkflow === Tuntutan::PAYMENT_WORKFLOW_DIRECTOR_CC;
+        $invoiceSentToAccount = $isDirectorCreditCard
+            ? (bool) ($validated['invoice_sent_to_account'] ?? false)
+            : false;
+        $requiresPreApprovalDocument = $paymentWorkflow === Tuntutan::PAYMENT_WORKFLOW_COMPANY_TRANSFER
+            || ($isDirectorCreditCard && $invoiceSentToAccount);
+
+        $request->validate([
+            'invoice_sent_to_account' => $isDirectorCreditCard
+                ? ['required', 'boolean']
+                : ['prohibited'],
+            'purchase_attachment' => $requiresPreApprovalDocument
+                ? ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120']
+                : ['prohibited'],
+        ], [
+            'purchase_attachment.required' => 'Sila muat naik dokumen yang diperlukan sebelum menghantar permohonan.',
         ]);
 
         $requestDate = Carbon::parse($validated['request_date']);
@@ -358,7 +453,8 @@ class TuntutanController extends Controller
             'total_item_amount' => $validated['total_item_amount'],
             'payment_method' => $validated['payment_method'],
             'other_payment_method' => $isOtherPaymentMethod ? Tuntutan::OTHER_PAYMENT_METHOD_DETAIL : null,
-            'invoice_sent_to_account' => $validated['invoice_sent_to_account'],
+            'payment_workflow' => $paymentWorkflow,
+            'invoice_sent_to_account' => $isDirectorCreditCard ? $invoiceSentToAccount : null,
             'request_date' => $validated['request_date'],
             'date_receive' => $validated['date_receive'],
             'tarikh_beli' => $validated['request_date'],
@@ -373,6 +469,32 @@ class TuntutanController extends Controller
             'item_id' => null,
             'data_baru' => $claim->toArray(),
         ]);
+    }
+
+    /**
+     * Preserve the established status values while deciding whether an
+     * approved request has a remaining workflow action.
+     */
+    private function statusAfterReview(Tuntutan $claim, string $approvalResult): string
+    {
+        if ($approvalResult !== 'Approved' || ! $claim->isPurchaseRequest()) {
+            return 'Completed';
+        }
+
+        if ($claim->payment_workflow === Tuntutan::PAYMENT_WORKFLOW_DIRECTOR_CC) {
+            return $claim->invoice_sent_to_account && $claim->purchase_attachment !== null
+                ? 'Completed'
+                : 'Pending';
+        }
+
+        if (
+            $claim->payment_workflow === Tuntutan::PAYMENT_WORKFLOW_LEGACY
+            || $claim->payment_workflow === null
+        ) {
+            return $claim->attachment !== null ? 'Completed' : 'Pending';
+        }
+
+        return 'Pending';
     }
 
     private function storeLunchClaims(

@@ -310,6 +310,7 @@ class FFGroceryTrackTest extends TestCase
         TuntutanPreset::create([
             'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
             'name' => 'Bank Transfer',
+            'payment_workflow' => 'director_cc',
             'sort_order' => 1,
         ]);
 
@@ -322,7 +323,7 @@ class FFGroceryTrackTest extends TestCase
             'purchase_platform' => 'Shopee',
             'total_item_amount' => 45.90,
             'payment_method' => 'Bank Transfer',
-            'invoice_sent_to_account' => 1,
+            'invoice_sent_to_account' => 0,
             'date_receive' => '2026-07-23',
         ]);
 
@@ -375,6 +376,7 @@ class FFGroceryTrackTest extends TestCase
         TuntutanPreset::create([
             'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
             'name' => 'Tunai',
+            'payment_workflow' => 'director_cc',
             'sort_order' => 1,
         ]);
 
@@ -408,6 +410,7 @@ class FFGroceryTrackTest extends TestCase
         TuntutanPreset::create([
             'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
             'name' => 'Bank Transfer',
+            'payment_workflow' => 'director_cc',
             'sort_order' => 1,
         ]);
 
@@ -418,7 +421,6 @@ class FFGroceryTrackTest extends TestCase
             'purchase_purpose' => 'Monthly pantry restock.',
             'purchase_platform' => 'Shopee',
             'total_item_amount' => 50.00,
-            'invoice_sent_to_account' => 1,
             'date_receive' => '2026-07-22',
         ];
 
@@ -500,7 +502,7 @@ class FFGroceryTrackTest extends TestCase
             ->assertSeeText('INVOICE NO.:')
             ->assertSeeText('N/A')
             ->assertSeeText('Submitted')
-            ->assertSeeText('Approved - receipt required')
+            ->assertSeeText('Approved - requester document required')
             ->assertSeeText('Completed')
             ->assertSeeText('Rejected')
             ->assertDontSeeText('Menunggu kelulusan')
@@ -799,7 +801,7 @@ class FFGroceryTrackTest extends TestCase
             ->assertSee('nav-notification-dot-receipt', false)
             ->assertDontSee('nav-notification-dot-review', false)
             ->assertDontSee('nav-notification-dot-uploaded-receipt', false)
-            ->assertSeeText('A purchase request needs your receipt upload.');
+            ->assertSeeText('A purchase request needs your invoice or receipt upload.');
 
         $this->actingAs($nonActionableStocker)
             ->get('/inventori')
@@ -1158,6 +1160,7 @@ class FFGroceryTrackTest extends TestCase
         TuntutanPreset::create([
             'type' => TuntutanPreset::TYPE_PAYMENT_METHOD,
             'name' => 'Corporate Card',
+            'payment_workflow' => 'director_cc',
             'sort_order' => 1,
         ]);
 
@@ -1175,7 +1178,9 @@ class FFGroceryTrackTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('status', 'Pending')
-            ->assertJsonPath('requestor_name', $stocker->name);
+            ->assertJsonPath('requestor_name', $stocker->name)
+            ->assertJsonPath('workflow.type', 'director_cc')
+            ->assertJsonPath('workflow.stage', 'awaiting_approval');
 
         $claimId = $createResponse->json('id');
 
@@ -1183,7 +1188,10 @@ class FFGroceryTrackTest extends TestCase
             ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Approved'])
             ->assertOk()
             ->assertJsonPath('status', 'Pending')
-            ->assertJsonPath('approval_result', 'Approved');
+            ->assertJsonPath('approval_result', 'Approved')
+            ->assertJsonPath('workflow.stage', 'awaiting_requester_document')
+            ->assertJsonPath('workflow.next_actor', 'requester')
+            ->assertJsonPath('workflow.required_document', 'attachment');
 
         $this->withToken('stocker-purchase-token')
             ->post("/api/tuntutan/{$claimId}/lampiran", [
@@ -1191,7 +1199,8 @@ class FFGroceryTrackTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('status', 'Completed')
-            ->assertJsonPath('approval_result', 'Approved');
+            ->assertJsonPath('approval_result', 'Approved')
+            ->assertJsonPath('workflow.stage', 'completed');
 
         $this->withToken('superadmin-purchase-token')
             ->patchJson("/api/tuntutan/{$claimId}/status", ['approval_result' => 'Rejected'])
@@ -1216,7 +1225,6 @@ class FFGroceryTrackTest extends TestCase
             'purchase_platform' => 'Kedai Fizikal',
             'total_item_amount' => 40.00,
             'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
-            'invoice_sent_to_account' => true,
             'date_receive' => '2026-07-22',
         ];
 
@@ -1224,7 +1232,9 @@ class FFGroceryTrackTest extends TestCase
             ->postJson('/api/tuntutan', $payload)
             ->assertCreated()
             ->assertJsonPath('payment_method', Tuntutan::OTHER_PAYMENT_METHOD)
-            ->assertJsonPath('other_payment_method', Tuntutan::OTHER_PAYMENT_METHOD_DETAIL);
+            ->assertJsonPath('other_payment_method', Tuntutan::OTHER_PAYMENT_METHOD_DETAIL)
+            ->assertJsonPath('workflow.type', 'own_expenses')
+            ->assertJsonPath('workflow.stage', 'awaiting_approval');
 
         $this->withToken('stocker-other-payment-token')
             ->postJson('/api/tuntutan', array_merge($payload, [

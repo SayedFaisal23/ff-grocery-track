@@ -60,6 +60,7 @@ class TuntutanPresetController extends Controller
 
         $tuntutanPreset->update([
             'name' => $validated['name'],
+            'payment_workflow' => $validated['payment_workflow'] ?? null,
             'sort_order' => $request->integer('sort_order', $tuntutanPreset->sort_order),
         ]);
 
@@ -176,6 +177,9 @@ class TuntutanPresetController extends Controller
         $request->merge([
             'type' => $preset?->type ?? (is_string($request->input('type')) ? trim($request->input('type')) : $request->input('type')),
             'name' => is_string($request->input('name')) ? trim($request->input('name')) : $request->input('name'),
+            'payment_workflow' => is_string($request->input('payment_workflow'))
+                ? trim($request->input('payment_workflow'))
+                : $request->input('payment_workflow'),
         ]);
 
         return $request->validate([
@@ -191,6 +195,12 @@ class TuntutanPresetController extends Controller
                     $request->input('type') === TuntutanPreset::TYPE_PAYMENT_METHOD,
                     Rule::notIn([Tuntutan::OTHER_PAYMENT_METHOD])
                 ),
+            ],
+            'payment_workflow' => [
+                Rule::requiredIf($request->input('type') === TuntutanPreset::TYPE_PAYMENT_METHOD),
+                Rule::prohibitedIf($request->input('type') !== TuntutanPreset::TYPE_PAYMENT_METHOD),
+                'nullable',
+                Rule::in(TuntutanPreset::paymentWorkflows()),
             ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);

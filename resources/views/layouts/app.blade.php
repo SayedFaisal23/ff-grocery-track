@@ -86,22 +86,33 @@
                 </a>
                 
                 @hasanyrole('Superadmin|Stocker')
+                @php
+                    $awaitingReview = $purchaseRequestNotifications['awaiting_review'] ?? false;
+                    $awaitingReceiptReview = $purchaseRequestNotifications['awaiting_receipt_review'] ?? false;
+                    $awaitingRequesterDocument = ($purchaseRequestNotifications['awaiting_requester_document_upload'] ?? false)
+                        || ($purchaseRequestNotifications['awaiting_receipt_upload'] ?? false);
+                    $awaitingPaymentProof = $purchaseRequestNotifications['awaiting_payment_proof_upload'] ?? false;
+                @endphp
                 <a href="{{ route('tuntutan.index') }}" class="nav-item {{ Request::routeIs('tuntutan.*') ? 'active' : '' }}">
                     <i class="fa-solid fa-receipt"></i>
                     <span>Purchase Request Form</span>
-                    @if($purchaseRequestNotifications['awaiting_review'] || $purchaseRequestNotifications['awaiting_receipt_review'] || $purchaseRequestNotifications['awaiting_receipt_upload'])
+                    @if($awaitingReview || $awaitingReceiptReview || $awaitingRequesterDocument || $awaitingPaymentProof)
                         <span class="nav-notification-dots" aria-label="Purchase Request Form notifications">
-                            @if($purchaseRequestNotifications['awaiting_review'])
+                            @if($awaitingReview)
                                 <span class="nav-notification-dot nav-notification-dot-review" aria-hidden="true"></span>
                                 <span class="sr-only">A purchase request is awaiting your decision.</span>
                             @endif
-                            @if($purchaseRequestNotifications['awaiting_receipt_review'])
+                            @if($awaitingReceiptReview)
                                 <span class="nav-notification-dot nav-notification-dot-uploaded-receipt" aria-hidden="true"></span>
                                 <span class="sr-only">An uploaded purchase receipt is awaiting your review.</span>
                             @endif
-                            @if($purchaseRequestNotifications['awaiting_receipt_upload'])
+                            @if($awaitingRequesterDocument)
                                 <span class="nav-notification-dot nav-notification-dot-receipt" aria-hidden="true"></span>
-                                <span class="sr-only">A purchase request needs your receipt upload.</span>
+                                <span class="sr-only">A purchase request needs your invoice or receipt upload.</span>
+                            @endif
+                            @if($awaitingPaymentProof)
+                                <span class="nav-notification-dot nav-notification-dot-payment-proof" aria-hidden="true"></span>
+                                <span class="sr-only">A company transfer request needs your payment proof upload.</span>
                             @endif
                         </span>
                     @endif
@@ -384,12 +395,12 @@
 
             removeButton?.addEventListener('click', () => clearSelection());
 
-            const receiptForm = dropzone.closest('form[data-receipt-upload-form]');
-            receiptForm?.addEventListener('submit', (event) => {
+            const documentUploadForm = dropzone.closest('form[data-file-upload-form], form[data-receipt-upload-form]');
+            documentUploadForm?.addEventListener('submit', (event) => {
                 if (claimFileError(input.files?.[0] ?? null)) {
                     event.preventDefault();
                     dropzone.classList.add('has-error');
-                    setStatus('Sila pilih resit yang sah sebelum memuat naik.');
+                    setStatus(documentUploadForm.dataset.fileRequiredMessage || 'Sila pilih dokumen yang sah sebelum memuat naik.');
                     dropzone.focus();
                 }
             });

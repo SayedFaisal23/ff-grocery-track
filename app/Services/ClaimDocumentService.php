@@ -21,6 +21,7 @@ class ClaimDocumentService
 
     public const DOCUMENT_PURCHASE_ATTACHMENT = 'purchase_attachment';
     public const DOCUMENT_ATTACHMENT = 'attachment';
+    public const DOCUMENT_PAYMENT_PROOF_ATTACHMENT = 'payment_proof_attachment';
 
     /**
      * Store a newly uploaded claim document on the private local disk.
@@ -116,8 +117,10 @@ class ClaimDocumentService
         return [
             'purchase_attachment_available' => $this->resolve($claim, self::DOCUMENT_PURCHASE_ATTACHMENT) !== null,
             'attachment_available' => $this->resolve($claim, self::DOCUMENT_ATTACHMENT) !== null,
+            'payment_proof_attachment_available' => $this->resolve($claim, self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT) !== null,
             'purchase_attachment_awaiting_view' => $claim->isDocumentAwaitingView(self::DOCUMENT_PURCHASE_ATTACHMENT),
             'attachment_awaiting_view' => $claim->isDocumentAwaitingView(self::DOCUMENT_ATTACHMENT),
+            'payment_proof_attachment_awaiting_view' => $claim->isDocumentAwaitingView(self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT),
             'latest_attachment_downloaded_at' => $claim->latest_attachment_downloaded_at?->toIso8601String(),
             'claim_details_viewed_at' => $claim->claim_details_viewed_at?->toIso8601String(),
         ];
@@ -199,6 +202,7 @@ class ClaimDocumentService
         return in_array($document, [
             self::DOCUMENT_PURCHASE_ATTACHMENT,
             self::DOCUMENT_ATTACHMENT,
+            self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT,
         ], true);
     }
 

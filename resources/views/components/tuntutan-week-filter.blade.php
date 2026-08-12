@@ -43,6 +43,8 @@
             <select name="status" onchange="this.form.submit()" aria-label="Filter purchase requests by status">
                 <option value="">All statuses</option>
                 <option value="submitted" @selected($selectedStatus === 'submitted')>Submitted</option>
+                <option value="requester_document_required" @selected($selectedStatus === 'requester_document_required')>Approved - requester document required</option>
+                <option value="payment_proof_required" @selected($selectedStatus === 'payment_proof_required')>Approved - payment proof required</option>
                 <option value="receipt_required" @selected($selectedStatus === 'receipt_required')>Approved — receipt required</option>
                 <option value="completed" @selected($selectedStatus === 'completed')>Completed</option>
                 <option value="rejected" @selected($selectedStatus === 'rejected')>Rejected</option>
