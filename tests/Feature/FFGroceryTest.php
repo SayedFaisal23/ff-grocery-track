@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class FFGroceryTrackTest extends TestCase
+class FFGroceryTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -1114,6 +1114,12 @@ class FFGroceryTrackTest extends TestCase
             ->get('/tuntutan-preset')
             ->assertOk()
             ->assertSee('data-preset-drag-handle', false)
+            ->assertSeeInOrder([
+                'class="preset-reorder-header"',
+                'Pilihan',
+                'data-preset-drag-handle',
+                'value="Third platform"',
+            ], false)
             ->assertSee('preset-reorder-status', false)
             ->assertDontSee('name="sort_order"', false)
             ->assertSee('value="Third platform"', false)

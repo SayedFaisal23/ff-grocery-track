@@ -92,17 +92,34 @@
                 <table class="custom-table preset-table {{ $type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD ? 'preset-table-payment' : '' }}" data-preset-reorder-url="{{ route('tuntutan-preset.reorder') }}">
                     <thead>
                         <tr>
+                            <th class="preset-reorder-header">
+                                <span class="sr-only">Susun</span>
+                            </th>
                             <th>Pilihan</th>
                             @if($type === \App\Models\TuntutanPreset::TYPE_PAYMENT_METHOD)
                                 <th>Aliran kerja</th>
                             @endif
-                            <th class="preset-reorder-header">Susun</th>
                             <th style="text-align: right;">Tindakan</th>
                         </tr>
                     </thead>
                     <tbody data-preset-list data-preset-type="{{ $type }}">
                         @forelse($group['items'] as $preset)
                             <tr data-preset-row data-preset-id="{{ $preset->id }}">
+                                <td class="preset-reorder-cell">
+                                    <button
+                                        type="button"
+                                        class="preset-drag-handle"
+                                        draggable="true"
+                                        data-preset-drag-handle
+                                        aria-label="Seret {{ $preset->name }} untuk menyusun semula"
+                                        aria-pressed="false"
+                                    >
+                                        @for($dot = 0; $dot < 6; $dot++)
+                                            <span aria-hidden="true"></span>
+                                        @endfor
+                                        <span class="sr-only">Seret untuk menyusun semula</span>
+                                    </button>
+                                </td>
                                 <td>
                                     <input
                                         type="text"
@@ -132,21 +149,6 @@
                                         </select>
                                     </td>
                                 @endif
-                                <td class="preset-reorder-cell">
-                                    <button
-                                        type="button"
-                                        class="preset-drag-handle"
-                                        draggable="true"
-                                        data-preset-drag-handle
-                                        aria-label="Seret {{ $preset->name }} untuk menyusun semula"
-                                        aria-pressed="false"
-                                    >
-                                        @for($dot = 0; $dot < 6; $dot++)
-                                            <span aria-hidden="true"></span>
-                                        @endfor
-                                        <span class="sr-only">Seret untuk menyusun semula</span>
-                                    </button>
-                                </td>
                                 <td style="text-align: right; white-space: nowrap;">
                                     <form id="preset-update-{{ $preset->id }}" action="{{ route('tuntutan-preset.update', $preset) }}" method="POST" style="display: inline;">
                                         @csrf

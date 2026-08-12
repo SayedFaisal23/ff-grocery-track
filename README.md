@@ -1,6 +1,6 @@
-# FFGroceryTrack
+# FFGrocery
 
-FFGroceryTrack is a Malay-language grocery inventory and purchase-request system. It gives teams one place to track stock, expiry dates, restock needs, requests, receipts, and the activity behind each change.
+FFGrocery is a Malay-language grocery inventory and purchase-request system. It gives teams one place to track stock, expiry dates, restock needs, requests, receipts, and the activity behind each change.
 
 Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CSS/Vite frontend toolchain, it is also available as an installable progressive web app with a basic offline fallback.
 

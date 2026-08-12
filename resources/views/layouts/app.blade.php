@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
-    <title>@yield('title', 'Utama') | FFGroceryTrack</title>
+    <title>@yield('title', 'Utama') | FFGrocery</title>
     
     <!-- Meta PWA -->
     <meta name="theme-color" content="#f4f7fb">

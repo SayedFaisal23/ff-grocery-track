@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log Masuk | FFGroceryTrack</title>
+    <title>Log Masuk | FFGrocery</title>
     
     <link rel="stylesheet" href="/css/app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -80,7 +80,7 @@
             
             <div class="login-logo">
                 <div class="icon">F</div>
-                <div class="logo-text">FFGroceryTrack</div>
+                <div class="logo-text">FFGrocery</div>
             </div>
 
             <h2 class="login-title">Selamat Kembali</h2>

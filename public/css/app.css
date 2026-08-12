@@ -1605,10 +1605,17 @@ html[data-theme="light"] .badge-general {
     min-width: 540px;
 }
 
-.preset-reorder-header,
-.preset-reorder-cell {
-    width: 70px;
+.preset-table .preset-reorder-header,
+.preset-table .preset-reorder-cell {
+    width: 40px;
+    min-width: 40px;
+    padding-right: 0;
+    padding-left: 0.5rem;
     text-align: center;
+}
+
+.preset-table .preset-reorder-cell + td {
+    padding-left: 0;
 }
 
 .preset-drag-handle {
@@ -1616,10 +1623,12 @@ html[data-theme="light"] .badge-general {
     grid-template-columns: repeat(2, 4px);
     grid-template-rows: repeat(3, 4px);
     gap: 3px;
-    padding: 0.55rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface-hover);
+    width: 32px;
+    height: 32px;
+    transform: translateX(8px);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--text-muted);
     cursor: grab;
     touch-action: none;
@@ -1633,10 +1642,14 @@ html[data-theme="light"] .badge-general {
 }
 
 .preset-drag-handle:hover,
-.preset-drag-handle:focus-visible,
 .preset-drag-handle[aria-pressed="true"] {
-    border-color: var(--color-primary);
-    background: rgba(99, 102, 241, 0.12);
+    color: var(--color-primary);
+}
+
+.preset-drag-handle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
     color: var(--color-primary);
 }
 
@@ -2493,9 +2506,10 @@ html[data-theme="light"] .badge-general {
         padding: 0.7rem 0.45rem;
     }
 
-    .preset-reorder-header,
-    .preset-reorder-cell {
-        width: 54px;
+    .preset-table .preset-reorder-header,
+    .preset-table .preset-reorder-cell {
+        width: 40px;
+        min-width: 40px;
     }
 
     .preset-table td:last-child,
