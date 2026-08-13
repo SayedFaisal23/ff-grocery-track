@@ -79,10 +79,12 @@ class ClaimDocumentWorkflowTest extends TestCase
         $superadmin = $this->superadmin();
         Storage::disk('local')->put('claim-documents/quotation.pdf', 'quotation');
         Storage::disk('local')->put('claim-documents/receipt.pdf', 'receipt');
+        Storage::disk('local')->put('claim-documents/payment-proof.pdf', 'payment proof');
 
         $claim = $this->purchaseClaim($owner, [
             'purchase_attachment' => 'claim-documents/quotation.pdf',
             'attachment' => 'claim-documents/receipt.pdf',
+            'payment_proof_attachment' => 'claim-documents/payment-proof.pdf',
             'status' => 'Completed',
             'approval_result' => 'Approved',
         ]);
@@ -91,8 +93,9 @@ class ClaimDocumentWorkflowTest extends TestCase
             ->get(route('tuntutan.index'))
             ->assertOk()
             ->assertSee('claim-document-awaiting-view', false)
-            ->assertSeeText('Latest attachment download date and time')
-            ->assertSeeText('Latest claim details review date and time');
+            ->assertSeeText('Proof of Payment')
+            ->assertSeeText('Latest attachment download:')
+            ->assertDontSeeText('Latest claim details review date and time');
 
         $this->actingAs($otherStocker)
             ->get(route('tuntutan.purchase-attachment', $claim))

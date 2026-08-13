@@ -449,7 +449,7 @@ class FFGroceryTest extends TestCase
             ->assertSeeText('Lain-lain — Own expenses');
     }
 
-    public function test_claim_statuses_and_responsive_claim_markup_are_clear_and_single_stage(): void
+    public function test_claim_statuses_and_universal_claim_card_markup_are_clear_and_single_stage(): void
     {
         $stocker = User::factory()->create();
         $stocker->assignRole('Stocker');
@@ -489,16 +489,27 @@ class FFGroceryTest extends TestCase
             'reviewed_by' => $superadmin->id,
         ]));
 
-        $this->actingAs($superadmin)
-            ->get('/tuntutan')
+        $response = $this->actingAs($superadmin)
+            ->get('/tuntutan');
+
+        $response
             ->assertOk()
-            ->assertSee('claims-desktop-table', false)
-            ->assertSee('claims-mobile-list', false)
-            ->assertSee('claim-mobile-summary', false)
+            ->assertDontSee('claims-desktop-table', false)
+            ->assertDontSee('claims-table', false)
+            ->assertSee('claims-list', false)
+            ->assertSee('claim-card', false)
+            ->assertSee('claim-summary', false)
             ->assertSee('data-claim-modal-open', false)
-            ->assertSee('claim-mobile-modal', false)
+            ->assertSee('claim-details-modal', false)
+            ->assertSee('data-claim-modal', false)
+            ->assertSee('claim-details-dialog-card', false)
+            ->assertSee('claim-details-header', false)
+            ->assertSee('claim-dialog-title', false)
             ->assertSee('claim-detail-rows', false)
-            ->assertDontSee('claim-detail-grid-compact', false)
+            ->assertSee('claim-details-meta', false)
+            ->assertSee('claim-document-actions', false)
+            ->assertSee('claim-details-footer', false)
+            ->assertSee('aria-haspopup="dialog"', false)
             ->assertSeeText('INVOICE NO.:')
             ->assertSeeText('N/A')
             ->assertSeeText('Submitted')
@@ -506,7 +517,121 @@ class FFGroceryTest extends TestCase
             ->assertSeeText('Completed')
             ->assertSeeText('Rejected')
             ->assertDontSeeText('Menunggu kelulusan')
-            ->assertDontSeeText('Total amount');
+            ->assertDontSeeText('Total amount')
+            ->assertDontSee('IntersectionObserver', false)
+            ->assertDontSee('data-claim-details-context="desktop"', false);
+
+        $this->assertSame(4, substr_count($response->getContent(), 'data-claim-modal-open="claim-details-modal-'));
+        $this->assertSame(4, substr_count($response->getContent(), '<dialog'));
+    }
+
+    public function test_claim_details_dialog_preserves_conditional_purchase_facts_documents_and_workflow_content(): void
+    {
+        $stocker = User::factory()->create();
+        $stocker->assignRole('Stocker');
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('Superadmin');
+
+        $baseClaim = [
+            'user_id' => $stocker->id,
+            'requestor_name' => $stocker->name,
+            'tag' => 'Pantry',
+            'purchase_purpose' => 'Keep the pantry stocked.',
+            'invoice_no' => 'INV-2026-08',
+            'purchase_platform' => 'Shopee',
+            'nilai_tuntutan' => 400.00,
+            'total_item_amount' => 400.00,
+            'payment_method' => 'Company Transfer',
+            'tarikh_beli' => '2026-08-10',
+            'request_date' => '2026-08-10',
+            'date_receive' => '2026-08-12',
+            'minggu_tuntutan' => '2026-W33',
+        ];
+
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Director CC printer paper',
+            'item_specification' => 'Director CC printer paper',
+            'payment_method' => 'Director corporate card',
+            'payment_workflow' => Tuntutan::PAYMENT_WORKFLOW_DIRECTOR_CC,
+            'invoice_sent_to_account' => true,
+            'purchase_attachment' => 'claim-documents/director-invoice.pdf',
+            'status' => 'Completed',
+            'approval_result' => 'Approved',
+            'reviewed_by' => $superadmin->id,
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Company transfer cleaning supplies',
+            'item_specification' => 'Company transfer cleaning supplies',
+            'payment_workflow' => Tuntutan::PAYMENT_WORKFLOW_COMPANY_TRANSFER,
+            'purchase_attachment' => 'claim-documents/company-transfer-quotation.pdf',
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+            'reviewed_by' => $superadmin->id,
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Own expenses stationery',
+            'item_specification' => 'Own expenses stationery',
+            'payment_method' => Tuntutan::OTHER_PAYMENT_METHOD,
+            'other_payment_method' => Tuntutan::OTHER_PAYMENT_METHOD_DETAIL,
+            'payment_workflow' => Tuntutan::PAYMENT_WORKFLOW_OWN_EXPENSES,
+            'status' => 'Pending',
+            'approval_result' => 'Approved',
+            'reviewed_by' => $superadmin->id,
+        ]));
+        Tuntutan::create(array_merge($baseClaim, [
+            'nama_item' => 'Awaiting review cleaning supplies',
+            'item_specification' => 'Awaiting review cleaning supplies',
+            'payment_workflow' => Tuntutan::PAYMENT_WORKFLOW_LEGACY,
+            'status' => 'Pending',
+        ]));
+
+        $superadminResponse = $this->actingAs($superadmin)->get('/tuntutan');
+
+        $superadminResponse
+            ->assertOk()
+            ->assertSeeText('Director CC printer paper')
+            ->assertSeeText('Company transfer cleaning supplies')
+            ->assertSeeText('Own expenses stationery')
+            ->assertSeeText('PURPOSE:')
+            ->assertSeeText('Keep the pantry stocked.')
+            ->assertSeeText('INVOICE NO.:')
+            ->assertSeeText('INV-2026-08')
+            ->assertSeeText('PURCHASE PLATFORM:')
+            ->assertSeeText('Shopee')
+            ->assertSeeText('PAYMENT METHOD:')
+            ->assertSeeText('INVOICE SENT TO ACCOUNT:')
+            ->assertSeeText('Yes')
+            ->assertSeeText('RM 400.00')
+            ->assertSeeText('10/08/2026')
+            ->assertSeeText('12/08/2026')
+            ->assertSeeText('Invoice/Quotation')
+            ->assertSeeText('Proof of payment required to complete this request')
+            ->assertSeeText('Approved - payment proof required')
+            ->assertSeeText('Reviewed by '.$superadmin->name)
+            ->assertSeeText('Latest attachment download:')
+            ->assertDontSeeText('Latest claim details review date and time')
+            ->assertSee('data-claim-review-url=', false)
+            ->assertSeeText('Approve')
+            ->assertSeeText('Reject')
+            ->assertDontSee('Receipt or invoice required to complete this claim', false);
+
+        $this->assertSame(
+            1,
+            substr_count($superadminResponse->getContent(), 'INVOICE SENT TO ACCOUNT:'),
+            'The invoice-account fact must be limited to Director CC claims.'
+        );
+
+        $stockerResponse = $this->actingAs($stocker)->get('/tuntutan');
+
+        $stockerResponse
+            ->assertOk()
+            ->assertSeeText('Own expenses stationery')
+            ->assertSeeText('Receipt or invoice required to complete this claim')
+            ->assertSee('data-receipt-upload-form', false)
+            ->assertDontSee('Proof of payment required to complete this request', false)
+            ->assertDontSee('data-claim-review-url=', false)
+            ->assertDontSee('name="approval_result" value="Approved"', false)
+            ->assertDontSee('name="approval_result" value="Rejected"', false);
     }
 
     public function test_claims_within_a_week_are_shown_newest_first(): void
@@ -700,7 +825,8 @@ class FFGroceryTest extends TestCase
             ->assertSee('name="type"', false)
             ->assertSee('name="status"', false)
             ->assertSee('claim-detail-rows', false)
-            ->assertSee('claims-table-with-actions', false)
+            ->assertSee('claims-list', false)
+            ->assertDontSee('claims-table-with-actions', false)
             ->assertSee('name="type" value="Pantry"', false)
             ->assertSee('name="status" value="submitted"', false)
             ->assertSeeText('Clear all')

@@ -43,72 +43,12 @@
             </div>
         </header>
 
-        <div class="table-wrapper claims-desktop-table">
-            <table class="custom-table claims-table {{ Auth::user()->hasRole('Superadmin') ? 'claims-table-with-actions' : '' }}">
-                <colgroup>
-                    <col class="claims-requester-column">
-                    <col class="claims-type-column">
-                    <col class="claims-details-column">
-                    <col class="claims-dates-column">
-                    <col class="claims-amount-column">
-                    <col class="claims-status-column">
-                    @role('Superadmin')
-                        <col class="claims-actions-column">
-                    @endrole
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th>Requester</th>
-                        <th>Type</th>
-                        <th class="claim-details-header">Request details</th>
-                        <th>Dates</th>
-                        <th>Amount</th>
-                        <th class="claim-status-cell">Status</th>
-                        @role('Superadmin')
-                            <th class="claim-actions-cell">Superadmin action</th>
-                        @endrole
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($claims as $claim)
-                        @php
-                            $amount = $claim->total_item_amount ?? $claim->nilai_tuntutan;
-                            $requestDate = $claim->request_date ?? $claim->tarikh_beli;
-                        @endphp
-                        <tr>
-                            <td>
-                                <div class="table-item-info">
-                                    <strong>{{ $claim->requestor_name ?: $claim->user->name }}</strong>
-                                    <div class="table-secondary-text">{{ $claim->user->email }}</div>
-                                </div>
-                            </td>
-                            <td><x-tuntutan-type-badge :claim="$claim" /></td>
-                            <td class="claim-details-cell"><x-tuntutan-details :claim="$claim" context="desktop" /></td>
-                            <td class="claim-dates-cell">
-                                @if($claim->isPurchaseRequest())
-                                    <div><span>Requested</span><strong>{{ $requestDate?->format('d/m/Y') ?? '-' }}</strong></div>
-                                    <div><span>Received</span><strong>{{ $claim->date_receive?->format('d/m/Y') ?? '-' }}</strong></div>
-                                @else
-                                    <strong>{{ $claim->tarikh_beli?->format('d/m/Y') ?? '-' }}</strong>
-                                @endif
-                            </td>
-                            <td class="claim-value-cell"><strong>RM {{ number_format($amount, 2) }}</strong></td>
-                            <td class="claim-status-cell"><x-tuntutan-status :claim="$claim" /></td>
-                            @role('Superadmin')
-                                <td class="claim-actions-cell"><x-tuntutan-actions :claim="$claim" /></td>
-                            @endrole
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        <div class="claims-mobile-list">
+        <div class="claims-list claims-mobile-list">
             @foreach($claims as $claim)
-                @php($modalId = "claim-mobile-modal-{$claim->id}")
-                <article class="claim-mobile-card">
-                    <x-tuntutan-mobile-summary :claim="$claim" :modal-id="$modalId" />
-                    <x-tuntutan-mobile-dialog :claim="$claim" :modal-id="$modalId" />
+                @php($modalId = "claim-details-modal-{$claim->id}")
+                <article class="claim-card claim-mobile-card">
+                    <x-tuntutan-claim-summary :claim="$claim" :modal-id="$modalId" />
+                    <x-tuntutan-claim-dialog :claim="$claim" :modal-id="$modalId" />
                 </article>
             @endforeach
         </div>
@@ -123,7 +63,6 @@
 <script>
     (() => {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const desktopReviewedClaims = new Set();
         const claimReviewRequestVersions = new Map();
 
         const malaysiaDateTime = (value) => {
@@ -225,7 +164,7 @@
             });
         });
 
-        document.querySelectorAll('.claim-mobile-modal').forEach((dialog) => {
+        document.querySelectorAll('.claim-details-modal').forEach((dialog) => {
             dialog.addEventListener('click', (event) => {
                 if (event.target === dialog) {
                     dialog.close();
@@ -239,7 +178,7 @@
         });
 
         document.querySelectorAll('[data-claim-modal-close]').forEach((button) => {
-            button.addEventListener('click', () => button.closest('.claim-mobile-modal')?.close());
+            button.addEventListener('click', () => button.closest('.claim-details-modal')?.close());
         });
 
         document.querySelectorAll('[data-attachment-open-link]').forEach((link) => {
@@ -269,54 +208,6 @@
             });
         });
 
-        const desktopClaimDetails = Array.from(document.querySelectorAll(
-            '[data-claim-details-review][data-claim-details-context="desktop"]'
-        ));
-
-        const trackDesktopDetailOnce = (details) => {
-            const claimId = details.dataset.claimId;
-
-            if (!claimId || desktopReviewedClaims.has(claimId)) {
-                return;
-            }
-
-            desktopReviewedClaims.add(claimId);
-            trackClaimDetailsReview(details);
-        };
-
-        if ('IntersectionObserver' in window) {
-            const desktopDetailObserver = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting || entry.intersectionRatio < 0.5) {
-                        return;
-                    }
-
-                    trackDesktopDetailOnce(entry.target);
-                    desktopDetailObserver.unobserve(entry.target);
-                });
-            }, { threshold: [0, 0.5, 1] });
-
-            desktopClaimDetails.forEach((details) => desktopDetailObserver.observe(details));
-        } else {
-            const evaluateDesktopDetails = () => {
-                desktopClaimDetails.forEach((details) => {
-                    if (desktopReviewedClaims.has(details.dataset.claimId)) {
-                        return;
-                    }
-
-                    const bounds = details.getBoundingClientRect();
-                    const visibleHeight = Math.max(0, Math.min(bounds.bottom, window.innerHeight) - Math.max(bounds.top, 0));
-
-                    if (bounds.height > 0 && visibleHeight / bounds.height >= 0.5) {
-                        trackDesktopDetailOnce(details);
-                    }
-                });
-            };
-
-            window.addEventListener('scroll', evaluateDesktopDetails, { passive: true });
-            window.addEventListener('resize', evaluateDesktopDetails);
-            evaluateDesktopDetails();
-        }
     })();
 </script>
 @endsection
