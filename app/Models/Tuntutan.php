@@ -517,7 +517,7 @@ class Tuntutan extends Model
                 : ($this->isOwnExpensesPayment() ? 'receipt or invoice' : 'receipt');
 
             return [
-                'label' => 'Approved - requester document required',
+                'label' => 'Approved — requester document required',
                 'tone' => 'primary',
                 'message' => "The requester must upload the {$documentLabel} to complete this claim.",
             ];
@@ -525,7 +525,7 @@ class Tuntutan extends Model
 
         if ($this->canUploadPaymentProof()) {
             return [
-                'label' => 'Approved - payment proof required',
+                'label' => 'Approved — payment proof required',
                 'tone' => 'primary',
                 'message' => 'A Superadmin must upload the company proof of payment to complete this claim.',
             ];
