@@ -9,6 +9,7 @@ use App\Services\ClaimDocumentService;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +30,11 @@ class TuntutanController extends Controller
         $selectedStatus = $this->selectedStatus($request);
 
         if ($user->hasRole('Stocker')) {
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $user->id)
+                ->with([
+                    'paymentProofViews' => fn ($paymentProofViews) => $paymentProofViews
+                        ->where('user_id', $user->id),
+                ]);
         }
 
         if ($selectedWeeks !== []) {
@@ -49,17 +54,104 @@ class TuntutanController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
+        $attentionCards = $this->attentionCards($claims, $user->hasRole('Superadmin'));
         $claimsGrouped = $claims->groupBy('minggu_tuntutan');
         $calendarWeeks = $this->calendarWeeks($calendarMonth);
 
         return view('tuntutan.index', compact(
             'calendarMonth',
             'calendarWeeks',
+            'attentionCards',
             'claimsGrouped',
             'selectedWeeks',
             'selectedType',
             'selectedStatus',
         ));
+    }
+
+    /**
+     * Build the actionable request summaries from the already-authorized and
+     * filtered collection displayed on the page.
+     *
+     * @return array<int, array{title: string, tone: string, icon: string, count: int, claims: array<int, array{id: int, label: string}>}>
+     */
+    private function attentionCards(Collection $claims, bool $isSuperadmin): array
+    {
+        if ($isSuperadmin) {
+            return [
+                $this->attentionCard(
+                    'To be approved/rejected',
+                    'warning',
+                    'fa-solid fa-clipboard-check',
+                    $claims->filter(fn (Tuntutan $claim): bool => $claim->canBeReviewed()),
+                ),
+                $this->attentionCard(
+                    'Proof of Payment to be uploaded',
+                    'primary',
+                    'fa-solid fa-building-columns',
+                    $claims->filter(fn (Tuntutan $claim): bool => $claim->canUploadPaymentProof()),
+                ),
+                $this->attentionCard(
+                    'Invoice/Receipt to be reviewed',
+                    'success',
+                    'fa-solid fa-file-circle-check',
+                    $claims->filter(fn (Tuntutan $claim): bool => $claim->isAwaitingReceiptReview()),
+                ),
+            ];
+        }
+
+        return [
+            $this->attentionCard(
+                'Invoice/Receipt to be uploaded',
+                'primary',
+                'fa-solid fa-file-arrow-up',
+                $claims->filter(fn (Tuntutan $claim): bool => $claim->canUploadAttachment()),
+            ),
+            $this->attentionCard(
+                'Proof of Payment to be reviewed',
+                'success',
+                'fa-solid fa-receipt',
+                $claims->filter(fn (Tuntutan $claim): bool => $this->hasUploadedCompanyPaymentProof($claim)),
+            ),
+        ];
+    }
+
+    private function hasUploadedCompanyPaymentProof(Tuntutan $claim): bool
+    {
+        return $claim->isPurchaseRequest()
+            && $claim->isCompanyTransferPayment()
+            && $claim->approval_result === 'Approved'
+            && $claim->hasDocument(Tuntutan::DOCUMENT_PAYMENT_PROOF_ATTACHMENT)
+            && $claim->paymentProofViews->isEmpty();
+    }
+
+    /**
+     * @param Collection<int, Tuntutan> $claims
+     * @return array{title: string, tone: string, icon: string, count: int, claims: array<int, array{id: int, label: string}>}
+     */
+    private function attentionCard(string $title, string $tone, string $icon, Collection $claims): array
+    {
+        $claimLinks = $claims
+            ->map(function (Tuntutan $claim): array {
+                $itemName = $claim->isPurchaseRequest()
+                    ? ($claim->item_specification ?: $claim->nama_item)
+                    : $claim->nama_item;
+
+                return [
+                    'id' => $claim->id,
+                    'label' => filled($itemName) ? (string) $itemName : "Claim #{$claim->id}",
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'title' => $title,
+            'tone' => $tone,
+            'icon' => $icon,
+            'count' => count($claimLinks),
+            'claims' => $claimLinks,
+        ];
     }
 
     /**

@@ -16,6 +16,8 @@
     @endrole
 </div>
 
+<x-tuntutan-attention-stats :cards="$attentionCards" />
+
 <x-tuntutan-week-filter
     :calendar-month="$calendarMonth"
     :calendar-weeks="$calendarWeeks"
@@ -46,7 +48,7 @@
         <div class="claims-list claims-mobile-list">
             @foreach($claims as $claim)
                 @php($modalId = "claim-details-modal-{$claim->id}")
-                <article class="claim-card claim-mobile-card">
+                <article id="claim-{{ $claim->id }}" class="claim-card claim-mobile-card" data-claim-card>
                     <x-tuntutan-claim-summary :claim="$claim" :modal-id="$modalId" />
                     <x-tuntutan-claim-dialog :claim="$claim" :modal-id="$modalId" />
                 </article>
@@ -185,6 +187,7 @@
             const label = link.querySelector('[data-attachment-open-label]');
             const status = link.parentElement?.querySelector('[data-attachment-open-status]');
             const originalLabel = label?.textContent?.trim() || 'Supporting document';
+            const refreshOnPaymentProofReturn = link.hasAttribute('data-payment-proof-review-link');
             let resetTimer;
 
             const resetAttachmentLink = () => {
@@ -205,6 +208,66 @@
                 // soon as that navigation has been launched and once focus returns.
                 resetTimer = window.setTimeout(resetAttachmentLink, 0);
                 window.addEventListener('focus', resetAttachmentLink, { once: true });
+
+                if (refreshOnPaymentProofReturn) {
+                    // The document stream records the owner review only after it
+                    // successfully authorises and resolves the proof. Reloading
+                    // on return keeps the attention count server-authoritative.
+                    window.addEventListener('focus', () => window.location.reload(), { once: true });
+                }
+            });
+        });
+
+        const claimPulseClasses = [
+            'is-attention-pulsing',
+            'is-attention-pulsing--warning',
+            'is-attention-pulsing--primary',
+            'is-attention-pulsing--success',
+        ];
+        const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+        const pulseClaimCard = (claimCard, tone) => {
+            const safeTone = ['warning', 'primary', 'success'].includes(tone) ? tone : 'primary';
+
+            claimCard.classList.remove(...claimPulseClasses);
+            void claimCard.offsetWidth;
+            claimCard.classList.add('is-attention-pulsing', `is-attention-pulsing--${safeTone}`);
+
+            if (reducedMotionQuery.matches) {
+                window.setTimeout(() => {
+                    claimCard.classList.remove(...claimPulseClasses);
+                }, 1200);
+
+                return;
+            }
+
+            claimCard.addEventListener('animationend', () => {
+                claimCard.classList.remove(...claimPulseClasses);
+            }, { once: true });
+        };
+
+        document.querySelectorAll('[data-claim-focus-link]').forEach((link) => {
+            link.addEventListener('click', (event) => {
+                const targetId = link.hash.slice(1);
+                const claimCard = document.getElementById(targetId);
+
+                if (!targetId || !claimCard) {
+                    return;
+                }
+
+                event.preventDefault();
+                window.history.pushState(null, '', `#${targetId}`);
+                claimCard.scrollIntoView({
+                    behavior: reducedMotionQuery.matches ? 'auto' : 'smooth',
+                    block: 'center',
+                });
+
+                const summary = claimCard.querySelector('[data-claim-modal-open]');
+                if (summary instanceof HTMLElement) {
+                    window.setTimeout(() => summary.focus({ preventScroll: true }), 0);
+                }
+
+                pulseClaimCard(claimCard, link.dataset.claimFocusTone ?? 'primary');
             });
         });
 

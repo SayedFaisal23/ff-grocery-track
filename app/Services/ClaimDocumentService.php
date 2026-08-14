@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\LogAktiviti;
 use App\Models\Tuntutan;
+use App\Models\TuntutanPaymentProofView;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,11 @@ class ClaimDocumentService
 
         if ($user->hasRole('Superadmin')) {
             $this->recordDocumentOpened($claim, $document, $user);
+        } elseif (
+            $document === self::DOCUMENT_PAYMENT_PROOF_ATTACHMENT
+            && (int) $claim->user_id === (int) $user->id
+        ) {
+            $this->recordOwnerPaymentProofViewed($claim, $user);
         }
 
         return $resolved;
@@ -195,6 +201,20 @@ class ClaimDocumentService
                 'data_baru' => $updatedClaim->toArray(),
             ]);
         }
+    }
+
+    /**
+     * Record a request owner's first successful view of their payment proof.
+     */
+    private function recordOwnerPaymentProofViewed(Tuntutan $claim, User $user): void
+    {
+        // The unique claim/user index makes repeat opens harmless, including
+        // two browser tabs resolving the same proof at the same time.
+        TuntutanPaymentProofView::query()->insertOrIgnore([
+            'tuntutan_id' => $claim->id,
+            'user_id' => $user->id,
+            'viewed_at' => now(),
+        ]);
     }
 
     private function isSupportedDocument(string $document): bool

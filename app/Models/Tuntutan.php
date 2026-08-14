@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tuntutan extends Model
 {
@@ -136,6 +137,14 @@ class Tuntutan extends Model
     public function paymentProofAttachmentViewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'payment_proof_attachment_viewed_by');
+    }
+
+    /**
+     * Get the per-user reviews of this claim's company payment proof.
+     */
+    public function paymentProofViews(): HasMany
+    {
+        return $this->hasMany(TuntutanPaymentProofView::class, 'tuntutan_id');
     }
 
     /**

@@ -92,6 +92,7 @@
                             rel="noopener"
                             class="btn btn-secondary btn-sm claim-document-action {{ $paymentProofAwaitingView ? 'claim-document-awaiting-view' : '' }}"
                             data-attachment-open-link
+                            @if($isOwner) data-payment-proof-review-link @endif
                         >
                             <i class="fa-solid fa-building-columns" aria-hidden="true"></i>
                             <span data-attachment-open-label>Proof of Payment</span>

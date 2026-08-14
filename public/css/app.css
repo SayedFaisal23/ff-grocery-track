@@ -332,21 +332,43 @@ button, input, select, textarea {
 }
 
 .inventory-summary-grid .card-stat {
+    --summary-card-tone: var(--color-primary);
+    --summary-card-tone-rgb: 99 102 241;
+
     min-width: 0;
-    min-height: 126px;
-    padding: 0.95rem 0.95rem 0.95rem 1.2rem;
+    min-height: 108px;
+    padding: 0.75rem 0.95rem 0.75rem 1.2rem;
     position: relative;
     overflow: hidden;
+    background: linear-gradient(135deg, rgb(var(--summary-card-tone-rgb) / 0.13), var(--bg-surface) 62%);
+}
+
+.inventory-summary-grid .card-stat.success {
+    --summary-card-tone: var(--color-success);
+    --summary-card-tone-rgb: 16 185 129;
+}
+
+.inventory-summary-grid .card-stat.warning {
+    --summary-card-tone: var(--color-warning);
+    --summary-card-tone-rgb: 245 158 11;
+}
+
+.inventory-summary-grid .card-stat.danger {
+    --summary-card-tone: var(--color-danger);
+    --summary-card-tone-rgb: 239 68 68;
 }
 
 .inventory-summary-grid .card-stat::after {
     width: 6px;
+    background-color: var(--summary-card-tone);
     opacity: 0.75;
 }
 
 .inventory-summary-grid .stat-value {
+    color: var(--text-main);
     font-size: 1.9rem;
     letter-spacing: 0.2px;
+    margin: 0.35rem 0;
 }
 
 .inventory-stat-label {
@@ -379,6 +401,211 @@ button, input, select, textarea {
 .inventory-summary .inventory-stat-description {
     font-size: 0.76rem;
     line-height: 1.35;
+}
+
+/* Purchase request attention summary */
+.purchase-request-attention-grid {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+}
+
+.purchase-request-attention-grid--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.purchase-request-attention-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.purchase-request-attention-card {
+    --summary-card-tone: var(--color-primary);
+    --summary-card-tone-rgb: 99 102 241;
+    --purchase-request-attention-tone: var(--summary-card-tone);
+    --purchase-request-attention-tone-rgb: var(--summary-card-tone-rgb);
+
+    min-width: 0;
+    min-height: 108px;
+    padding: 0.75rem 0.95rem 0.75rem 1.2rem;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-left: 6px solid var(--summary-card-tone);
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgb(var(--summary-card-tone-rgb) / 0.13), var(--bg-surface) 62%);
+    box-shadow: var(--shadow-sm);
+    color: var(--text-main);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.purchase-request-attention-card:hover {
+    border-color: var(--summary-card-tone);
+}
+
+.purchase-request-attention-card[data-attention-tone="warning"] {
+    --summary-card-tone: var(--color-warning);
+    --summary-card-tone-rgb: 245 158 11;
+}
+
+.purchase-request-attention-card[data-attention-tone="primary"] {
+    --summary-card-tone: var(--color-primary);
+    --summary-card-tone-rgb: 99 102 241;
+}
+
+.purchase-request-attention-card[data-attention-tone="success"] {
+    --summary-card-tone: var(--color-success);
+    --summary-card-tone-rgb: 16 185 129;
+}
+
+.claim-card {
+    --purchase-request-attention-tone: var(--color-primary);
+    --purchase-request-attention-tone-rgb: 99 102 241;
+}
+
+.claim-card.is-attention-pulsing--warning {
+    --purchase-request-attention-tone: var(--color-warning);
+    --purchase-request-attention-tone-rgb: 245 158 11;
+}
+
+.claim-card.is-attention-pulsing--primary {
+    --purchase-request-attention-tone: var(--color-primary);
+    --purchase-request-attention-tone-rgb: 99 102 241;
+}
+
+.claim-card.is-attention-pulsing--success {
+    --purchase-request-attention-tone: var(--color-success);
+    --purchase-request-attention-tone-rgb: 16 185 129;
+}
+
+.purchase-request-attention-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
+}
+
+.purchase-request-attention-card-content {
+    min-width: 0;
+}
+
+.purchase-request-attention-card-title {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-transform: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.purchase-request-attention-card-value {
+    margin-top: 0.35rem;
+    color: var(--text-main);
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.purchase-request-attention-card-icon {
+    flex: 0 0 auto;
+    margin: 0.08rem 0.5rem 0 0;
+    color: var(--summary-card-tone);
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.purchase-request-attention-card-claims {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    list-style: none;
+}
+
+.purchase-request-attention-card-claims li {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.purchase-request-attention-card-claims li + li::before {
+    content: '|';
+    margin: 0 0.35rem;
+    color: var(--text-muted);
+}
+
+.purchase-request-attention-link {
+    display: inline;
+    max-width: 100%;
+    min-width: 0;
+    color: var(--summary-card-tone);
+    font-size: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: underline;
+    text-decoration-color: rgb(var(--summary-card-tone-rgb) / 0.4);
+    text-underline-offset: 0.16em;
+}
+
+.purchase-request-attention-link:hover,
+.purchase-request-attention-link:focus-visible {
+    color: var(--text-main);
+    text-decoration-color: currentColor;
+}
+
+.purchase-request-attention-link-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.purchase-request-attention-card-more {
+    margin-top: 0.45rem;
+    color: var(--summary-card-tone);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.purchase-request-attention-card-more summary {
+    width: fit-content;
+    cursor: pointer;
+}
+
+.purchase-request-attention-card-more[open] summary {
+    margin-bottom: 0.35rem;
+}
+
+.purchase-request-attention-card-empty,
+.purchase-request-attention-grid-empty {
+    margin: 0.45rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.purchase-request-attention-grid-empty {
+    grid-column: 1 / -1;
+    margin-top: 0;
+}
+
+@keyframes purchase-request-attention-card-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgb(var(--purchase-request-attention-tone-rgb) / 0.48), var(--shadow-sm);
+    }
+    50% {
+        box-shadow: 0 0 0 5px rgb(var(--purchase-request-attention-tone-rgb) / 0.1), 0 0 18px rgb(var(--purchase-request-attention-tone-rgb) / 0.56), var(--shadow-sm);
+    }
+}
+
+.purchase-request-attention-card.is-attention-pulsing,
+.claim-card.is-attention-pulsing {
+    border-color: var(--purchase-request-attention-tone);
+    animation: purchase-request-attention-card-pulse 0.8s ease-in-out 2;
 }
 
 .card {
@@ -932,6 +1159,37 @@ select.form-control option {
 
     .inventory-summary-grid .inventory-summary-card-wide {
         grid-column: span 2;
+    }
+
+    .purchase-request-attention-grid--three,
+    .purchase-request-attention-grid--two {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.55rem;
+    }
+
+    .purchase-request-attention-card {
+        min-height: 82px;
+        padding: 0.6rem 0.6rem 0.6rem 0.85rem;
+    }
+
+    .purchase-request-attention-card-title {
+        font-size: 0.76rem;
+    }
+
+    .purchase-request-attention-card-value {
+        margin-top: 0.24rem;
+        font-size: 1.15rem;
+        line-height: 1.15;
+    }
+
+    .purchase-request-attention-card-icon {
+        font-size: 0.9rem;
+    }
+
+    .purchase-request-attention-card-claims,
+    .purchase-request-attention-card-more,
+    .purchase-request-attention-card-empty {
+        font-size: 0.69rem;
     }
 
     .badge.inventory-empty-stock-badge {
@@ -2096,6 +2354,12 @@ html[data-theme="light"] .badge-general {
     .claim-document-awaiting-view {
         animation: none;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    }
+
+    .purchase-request-attention-card.is-attention-pulsing,
+    .claim-card.is-attention-pulsing {
+        animation: none;
+        box-shadow: 0 0 0 3px rgb(var(--purchase-request-attention-tone-rgb) / 0.18), var(--shadow-sm);
     }
 
     .claim-file-dropzone,
