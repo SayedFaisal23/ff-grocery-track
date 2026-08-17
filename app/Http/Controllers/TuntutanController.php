@@ -28,6 +28,7 @@ class TuntutanController extends Controller
         $calendarMonth = $this->calendarMonth($request);
         $selectedType = $this->selectedType($request);
         $selectedStatus = $this->selectedStatus($request);
+        $selectedSearch = $this->selectedSearch($request);
 
         if ($user->hasRole('Stocker')) {
             $query->where('user_id', $user->id)
@@ -49,6 +50,10 @@ class TuntutanController extends Controller
             $query->withWorkflowStatus($selectedStatus);
         }
 
+        if ($selectedSearch !== null) {
+            $query->where('item_specification', 'like', '%'.$selectedSearch.'%');
+        }
+
         $claims = $query
             ->orderByDesc('tarikh_beli')
             ->orderByDesc('created_at')
@@ -66,6 +71,7 @@ class TuntutanController extends Controller
             'selectedWeeks',
             'selectedType',
             'selectedStatus',
+            'selectedSearch',
         ));
     }
 
@@ -767,6 +773,26 @@ class TuntutanController extends Controller
         return in_array($status, Tuntutan::FILTERABLE_WORKFLOW_STATUSES, true)
             ? $status
             : null;
+    }
+
+    /**
+     * Return a normalized request-name search query, if supplied.
+     */
+    private function selectedSearch(Request $request): ?string
+    {
+        $search = $request->query('search');
+
+        if (! is_string($search)) {
+            return null;
+        }
+
+        $search = trim($search);
+
+        if ($search === '') {
+            return null;
+        }
+
+        return mb_substr($search, 0, 255);
     }
 
     private function isValidIsoWeek(string $week): bool

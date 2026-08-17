@@ -33,7 +33,7 @@
     </script>
 
     <!-- CSS Utama -->
-    <link rel="stylesheet" href="/css/app.css?v=2.21">
+    <link rel="stylesheet" href="/css/app.css?v=2.22">
     
     <!-- FontAwesome (untuk ikon sampingan) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

@@ -24,6 +24,7 @@
     :selected-weeks="$selectedWeeks"
     :selected-type="$selectedType"
     :selected-status="$selectedStatus"
+    :selected-search="$selectedSearch"
 />
 
 @forelse($claimsGrouped as $week => $claims)

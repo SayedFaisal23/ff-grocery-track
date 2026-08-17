@@ -90,7 +90,7 @@
                                     aria-controls="claim-{{ $claim['id'] }}"
                                     aria-label="Focus Claim #{{ $claim['id'] }}: {{ $claim['label'] }}"
                                 >
-                                    <span class="purchase-request-attention-link-id">Claim #{{ $claim['id'] }}</span>
+                                    <span class="purchase-request-attention-link-label">{{ $claim['label'] }}</span>
                                 </a>
                             </li>
                         @endforeach
@@ -113,7 +113,7 @@
                                             aria-controls="claim-{{ $claim['id'] }}"
                                             aria-label="Focus Claim #{{ $claim['id'] }}: {{ $claim['label'] }}"
                                         >
-                                            <span class="purchase-request-attention-link-id">Claim #{{ $claim['id'] }}</span>
+                                            <span class="purchase-request-attention-link-label">{{ $claim['label'] }}</span>
                                         </a>
                                     </li>
                                 @endforeach

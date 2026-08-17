@@ -1,12 +1,14 @@
-@props(['calendarMonth', 'calendarWeeks', 'selectedWeeks', 'selectedType' => null, 'selectedStatus' => null])
+@props(['calendarMonth', 'calendarWeeks', 'selectedWeeks', 'selectedType' => null, 'selectedStatus' => null, 'selectedSearch' => ''])
 
 @php
     $selectedWeekLookup = array_fill_keys($selectedWeeks, true);
+    $selectedSearch = trim((string) $selectedSearch);
     $previousMonth = $calendarMonth->copy()->subMonth()->format('Y-m');
     $nextMonth = $calendarMonth->copy()->addMonth()->format('Y-m');
     $preservedFilters = array_filter([
         'type' => $selectedType,
         'status' => $selectedStatus,
+        'search' => $selectedSearch,
     ], fn ($value) => $value !== null && $value !== '');
     $filtersActive = $selectedWeeks !== [] || $preservedFilters !== [];
 @endphp
@@ -24,11 +26,26 @@
         @endif
     </header>
 
-    <form action="{{ route('tuntutan.index') }}" method="GET" class="claims-select-filters">
+    <form action="{{ route('tuntutan.index') }}" method="GET" class="claims-select-filters" data-claims-search-filter>
         <input type="hidden" name="month" value="{{ $calendarMonth->format('Y-m') }}">
         @foreach($selectedWeeks as $selectedWeek)
             <input type="hidden" name="weeks[]" value="{{ $selectedWeek }}">
         @endforeach
+        <label>
+            <span>Search request name</span>
+            <input
+                id="tuntutan-search"
+                type="search"
+                name="search"
+                value="{{ $selectedSearch }}"
+                maxlength="255"
+                class="form-control"
+                placeholder="Search Spesifikasi Item"
+                autocomplete="off"
+                aria-label="Search purchase requests by Spesifikasi Item"
+                data-claims-search-input
+            >
+        </label>
         <label>
             <span>Type</span>
             <select name="type" onchange="this.form.submit()" aria-label="Filter purchase requests by type">
@@ -145,3 +162,35 @@
         </div>
     </details>
 </section>
+
+@once
+<script>
+    (() => {
+        const initialiseClaimsSearchFilters = () => {
+            document.querySelectorAll('[data-claims-search-filter]').forEach((form) => {
+                if (form.dataset.claimsSearchReady === 'true') return;
+
+                const input = form.querySelector('[data-claims-search-input]');
+
+                if (!input) return;
+
+                form.dataset.claimsSearchReady = 'true';
+
+                let debounceTimer;
+
+                input.addEventListener('input', () => {
+                    window.clearTimeout(debounceTimer);
+
+                    debounceTimer = window.setTimeout(() => form.requestSubmit(), 300);
+                });
+            });
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialiseClaimsSearchFilters, { once: true });
+        } else {
+            initialiseClaimsSearchFilters();
+        }
+    })();
+</script>
+@endonce

@@ -530,6 +530,7 @@ button, input, select, textarea {
 .purchase-request-attention-card-claims li {
     display: inline-flex;
     align-items: center;
+    max-width: 100%;
     min-width: 0;
 }
 
@@ -540,7 +541,7 @@ button, input, select, textarea {
 }
 
 .purchase-request-attention-link {
-    display: inline;
+    display: inline-block;
     max-width: 100%;
     min-width: 0;
     color: var(--summary-card-tone);
@@ -558,7 +559,8 @@ button, input, select, textarea {
     text-decoration-color: currentColor;
 }
 
-.purchase-request-attention-link-id {
+.purchase-request-attention-link-label {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2514,7 +2516,8 @@ html[data-theme="light"] .badge-general {
     font-weight: 700;
 }
 
-.claims-select-filters select {
+.claims-select-filters select,
+.claims-select-filters input[type="search"] {
     width: 100%;
     min-height: 2.4rem;
     padding: 0.45rem 2rem 0.45rem 0.65rem;
@@ -2522,10 +2525,14 @@ html[data-theme="light"] .badge-general {
     border-radius: var(--radius-sm);
     background: var(--bg-surface-hover);
     color: var(--text-main);
+}
+
+.claims-select-filters select {
     cursor: pointer;
 }
 
-.claims-select-filters select:focus-visible {
+.claims-select-filters select:focus-visible,
+.claims-select-filters input[type="search"]:focus-visible {
     border-color: var(--color-primary);
     outline: 2px solid rgba(99, 102, 241, 0.25);
     outline-offset: 1px;

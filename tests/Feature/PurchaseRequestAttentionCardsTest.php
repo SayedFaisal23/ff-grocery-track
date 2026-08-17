@@ -140,6 +140,55 @@ class PurchaseRequestAttentionCardsTest extends TestCase
             ->assertDontSee('href="#claim-'.$otherProof->id.'"', false);
     }
 
+    public function test_attention_links_show_request_names_including_overflow_and_safe_fallbacks(): void
+    {
+        $superadmin = $this->superadmin();
+        $stocker = $this->stocker();
+        $overflowClaim = $this->attentionClaim($stocker, 'Overflow printer toner');
+        $unsafeName = 'Power & <script>alert("attention")</script>';
+        $unsafeNameClaim = $this->attentionClaim($stocker, $unsafeName);
+        $legacyNameClaim = $this->attentionClaim($stocker, 'Legacy request label', [
+            'item_specification' => null,
+        ]);
+        $fallbackClaim = $this->attentionClaim($stocker, '', [
+            'item_specification' => null,
+        ]);
+
+        $response = $this->actingAs($superadmin)->get(route('tuntutan.index'));
+        $approvalClaims = $this->attentionCards($response)['To be approved/rejected']['claims'];
+
+        $this->assertSame([
+            "Claim #{$fallbackClaim->id}",
+            'Legacy request label',
+            $unsafeName,
+            'Overflow printer toner',
+        ], collect($approvalClaims)->pluck('label')->all());
+        $response
+            ->assertOk()
+            ->assertSee('<details class="purchase-request-attention-card-more">', false)
+            ->assertSee('+1 more', false);
+
+        $unsafeLink = $this->attentionLinkMarkup($response, $unsafeNameClaim);
+        $this->assertStringContainsString(e($unsafeName), $unsafeLink);
+        $this->assertStringNotContainsString($unsafeName, $unsafeLink);
+        $this->assertStringContainsString(
+            'aria-label="Focus Claim #'.$unsafeNameClaim->id.': '.e($unsafeName).'"',
+            $unsafeLink,
+        );
+
+        $legacyLink = $this->attentionLinkMarkup($response, $legacyNameClaim);
+        $this->assertStringContainsString('>Legacy request label</span>', $legacyLink);
+        $this->assertStringNotContainsString('>Claim #'.$legacyNameClaim->id.'</span>', $legacyLink);
+
+        $fallbackLink = $this->attentionLinkMarkup($response, $fallbackClaim);
+        $this->assertStringContainsString('>Claim #'.$fallbackClaim->id.'</span>', $fallbackLink);
+
+        $overflowLink = $this->attentionLinkMarkup($response, $overflowClaim);
+        $this->assertStringContainsString('>Overflow printer toner</span>', $overflowLink);
+        $this->assertStringContainsString('data-claim-focus-link', $overflowLink);
+        $this->assertStringContainsString('aria-controls="claim-'.$overflowClaim->id.'"', $overflowLink);
+    }
+
     public function test_attention_cards_follow_the_current_request_filters(): void
     {
         $superadmin = $this->superadmin();
@@ -337,6 +386,19 @@ class PurchaseRequestAttentionCardsTest extends TestCase
         );
 
         $this->assertSame(1, $matchCount, 'Expected the payment-proof action link to be rendered.');
+
+        return $matches[0];
+    }
+
+    private function attentionLinkMarkup($response, Tuntutan $claim): string
+    {
+        $matchCount = preg_match(
+            '~<a\\b(?=[^>]*\\bhref="#claim-'.preg_quote((string) $claim->getKey(), '~').'\")[^>]*>.*?</a>~s',
+            $response->getContent(),
+            $matches,
+        );
+
+        $this->assertSame(1, $matchCount, 'Expected the attention-card link to be rendered.');
 
         return $matches[0];
     }
