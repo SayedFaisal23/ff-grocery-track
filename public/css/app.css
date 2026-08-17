@@ -3577,3 +3577,181 @@ html[data-theme="light"] .badge-general {
         max-width: none;
     }
 }
+
+/* Flowchart Info Button & Modal Popup */
+.btn-flowchart-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-hover);
+    color: var(--color-primary);
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+}
+
+.btn-flowchart-info:hover {
+    background: var(--color-primary);
+    color: #ffffff;
+    border-color: var(--color-primary);
+    transform: scale(1.08);
+    box-shadow: 0 0 12px var(--border-glow);
+}
+
+.btn-flowchart-info:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+html[data-theme="light"] .btn-flowchart-info {
+    background: #ffffff;
+    border-color: rgba(15, 23, 42, 0.12);
+    color: var(--color-primary);
+}
+
+html[data-theme="light"] .btn-flowchart-info:hover {
+    background: var(--color-primary);
+    color: #ffffff;
+    border-color: var(--color-primary);
+}
+
+.flowchart-modal {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-main);
+}
+
+.flowchart-modal[open] {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    overflow: hidden;
+    z-index: 1100;
+}
+
+.flowchart-modal::backdrop {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(5px);
+}
+
+.flowchart-modal-card {
+    width: min(960px, 100%);
+    max-height: calc(100dvh - clamp(1.5rem, 4vw, 3rem));
+    margin: 0;
+    padding: clamp(1rem, 2.5vw, 1.75rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-md);
+}
+
+.flowchart-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.flowchart-modal-kicker {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+}
+
+.flowchart-modal-title {
+    color: var(--text-main);
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.flowchart-modal-close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-hover);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all var(--transition-fast);
+}
+
+.flowchart-modal-close:hover,
+.flowchart-modal-close:focus-visible {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--color-primary);
+    outline: none;
+}
+
+.flowchart-modal-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 1.25rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.flowchart-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+    display: block;
+    box-shadow: var(--shadow-sm);
+    object-fit: contain;
+}
+
+/* Light / Dark Mode Toggle for Flowchart Image */
+.flowchart-image-dark {
+    display: block;
+}
+
+.flowchart-image-light {
+    display: none;
+}
+
+html[data-theme="light"] .flowchart-image-dark {
+    display: none;
+}
+
+html[data-theme="light"] .flowchart-image-light {
+    display: block;
+}
+
+@media (max-width: 640px) {
+    .flowchart-modal-card {
+        padding: 1rem;
+    }
+}
+

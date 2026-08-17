@@ -24,10 +24,15 @@
         @csrf
 
         <div style="margin-bottom: 1.75rem;">
-            <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; display: block;">
-                <i class="fa-solid fa-tag" style="color: var(--color-primary); margin-right: 6px;"></i>
-                Jenis Tuntutan
-            </label>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;">
+                <label class="form-label" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0; display: inline-flex; align-items: center;">
+                    <i class="fa-solid fa-tag" style="color: var(--color-primary); margin-right: 6px;"></i>
+                    Jenis Tuntutan
+                </label>
+                <button type="button" id="flowchartModalOpen" class="btn-flowchart-info" title="Carta Alir Permohonan" aria-label="Lihat Carta Alir Permohonan">
+                    <i class="fa-solid fa-circle-info"></i>
+                </button>
+            </div>
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 <label class="tag-pill">
                     <input type="radio" name="tag" value="Pantry" {{ old('tag') === 'Pantry' ? 'checked' : '' }} required>
@@ -290,6 +295,25 @@
     </form>
 </div>
 
+<!-- Modal Carta Alir Permohonan -->
+<dialog id="flowchartModal" class="flowchart-modal" aria-labelledby="flowchartModalTitle">
+    <div class="card flowchart-modal-card">
+        <header class="flowchart-modal-header">
+            <div>
+                <p class="flowchart-modal-kicker">Panduan</p>
+                <h2 id="flowchartModalTitle" class="flowchart-modal-title">Carta Alir Permohonan</h2>
+            </div>
+            <button type="button" id="flowchartModalClose" class="flowchart-modal-close" aria-label="Tutup carta alir">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </header>
+        <div class="flowchart-modal-body">
+            <img src="{{ asset('images/ReqFormFlow-Light.jpg') }}" alt="Carta Alir Permohonan (Mod Cerah)" class="flowchart-image flowchart-image-light" loading="lazy">
+            <img src="{{ asset('images/ReqFormFlow-Dark.jpg') }}" alt="Carta Alir Permohonan (Mod Gelap)" class="flowchart-image flowchart-image-dark" loading="lazy">
+        </div>
+    </div>
+</dialog>
+
 <style>
     .tag-pill { display: flex; align-items: center; gap: 8px; padding: 0.5rem 1.1rem; border-radius: 999px; border: 1.5px solid var(--border-color); background: var(--bg-surface-hover); color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast); user-select: none; }
     .tag-pill input[type="radio"] { display: none; }
@@ -514,5 +538,29 @@
             document.getElementById('lunchBottomError').style.display = 'block';
         }
     });
+
+    // Flowchart Modal Interactivity
+    const flowchartModal = document.getElementById('flowchartModal');
+    const openFlowchartBtn = document.getElementById('flowchartModalOpen');
+    const closeFlowchartBtn = document.getElementById('flowchartModalClose');
+
+    if (flowchartModal && openFlowchartBtn) {
+        openFlowchartBtn.addEventListener('click', () => {
+            flowchartModal.showModal();
+            closeFlowchartBtn?.focus();
+        });
+
+        closeFlowchartBtn?.addEventListener('click', () => {
+            flowchartModal.close();
+            openFlowchartBtn.focus();
+        });
+
+        flowchartModal.addEventListener('click', (event) => {
+            if (event.target === flowchartModal) {
+                flowchartModal.close();
+                openFlowchartBtn.focus();
+            }
+        });
+    }
 </script>
 @endsection
