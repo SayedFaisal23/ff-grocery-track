@@ -3771,6 +3771,43 @@ html[data-theme="light"] .badge-general {
     }
 }
 
+/* Progressive web app controls */
+.pwa-update-notice {
+    align-items: center;
+    background: var(--bg-surface, #1e293b);
+    border: 1px solid var(--color-primary, #6366f1);
+    border-radius: var(--radius-sm, 0.5rem);
+    box-shadow: var(--shadow-lg);
+    color: var(--text-main, #f8fafc);
+    display: flex;
+    gap: 0.75rem;
+    left: 50%;
+    max-width: calc(100vw - 2rem);
+    padding: 0.65rem 0.75rem 0.65rem 1rem;
+    position: fixed;
+    top: 1rem;
+    transform: translateX(-50%);
+    z-index: 10000;
+}
+
+.pwa-update-notice button {
+    background: var(--color-primary, #6366f1);
+    border: 0;
+    border-radius: var(--radius-sm, 0.5rem);
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.45rem 0.65rem;
+    white-space: nowrap;
+}
+
+.pwa-install-button {
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
 /* Flowchart Info Button & Modal Popup */
 .btn-flowchart-info {
     display: inline-flex;

@@ -16,6 +16,7 @@
     <!-- PWA Icons -->
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <link rel="manifest" href="/manifest.json">
+    <script src="/pwa.js" defer></script>
     
     <script>
         (() => {
@@ -44,6 +45,11 @@
     </style>
 </head>
 <body>
+
+    <div class="pwa-update-notice" data-pwa-update hidden role="status" aria-live="polite">
+        <span>Kemas kini FFGrocery tersedia.</span>
+        <button type="button" data-pwa-update-button>Kemas kini</button>
+    </div>
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
@@ -163,6 +169,11 @@
                     <i class="fa-solid fa-sun" data-theme-icon></i>
                     <span data-theme-label>Mod cerah</span>
                 </button>
+
+                <button type="button" class="btn btn-secondary btn-sm pwa-install-button" data-pwa-install hidden>
+                    <i class="fa-solid fa-download"></i>
+                    <span>Pasang aplikasi</span>
+                </button>
                 
                 <form action="{{ route('logout') }}" method="POST" style="margin-top: 8px;">
                     @csrf
@@ -194,16 +205,7 @@
         
     </div>
 
-    <!-- PWA Service Worker Registration -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker didaftarkan berjaya:', reg.scope))
-                    .catch(err => console.error('Pendaftaran Service Worker gagal:', err));
-            });
-        }
-        
         // Pengurusan loading overlay
         window.addEventListener('load', () => {
             const overlay = document.getElementById('loadingOverlay');

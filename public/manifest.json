@@ -2,11 +2,15 @@
   "name": "FFGrocery - Sistem Pengurusan Groseri",
   "short_name": "FFGrocery",
   "description": "Sistem Pengurusan dan Penjejakan Aset Groseri",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#1e293b",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "lang": "ms",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/images/icon-192.png",

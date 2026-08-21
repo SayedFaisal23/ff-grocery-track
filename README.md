@@ -2,7 +2,7 @@
 
 FFGrocery is a Malay-language grocery inventory and purchase-request system. It gives teams one place to track stock, expiry dates, restock needs, requests, receipts, and the activity behind each change.
 
-Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CSS/Vite frontend toolchain, it is also available as an installable progressive web app with a basic offline fallback.
+Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CSS/Vite frontend toolchain, it is also available as an installable progressive web app.
 
 ## What it does
 
@@ -13,6 +13,7 @@ Built with Laravel, Blade, MariaDB, Spatie Laravel Permission, and a Tailwind CS
 - Guides Pantry and General requests through payment-specific approval and document stages; documents can be JPEG, PNG, or PDF up to 5 MB.
 - Lets Superadmins manage users, categories, purchasing-platform and payment-method presets, and activity logs.
 - Sends optional Telegram reminders for items that are out of stock or at/below their restock threshold.
+- Can be installed from a supported browser; it caches its public app shell and presents a dedicated offline screen when live data cannot be reached.
 
 The application uses the `Asia/Kuala_Lumpur` timezone and is configured for Malay (`ms`) by default.
 
@@ -192,6 +193,7 @@ Tests use an in-memory SQLite database, so they do not modify the configured dev
 
 - Configure the web server document root as `public`.
 - Use HTTPS, set `APP_ENV=production`, set `APP_DEBUG=false`, and keep `SESSION_SECURE_COOKIE=true`.
+- The install prompt and service worker require HTTPS in production (browsers allow `localhost` for local development). The worker deliberately does not cache authenticated pages, API data, or private documents.
 - Keep `.env`, Telegram credentials, database passwords, and API tokens out of source control.
 - Run `php artisan migrate --force` as part of deployment, and build frontend assets when your deployment includes frontend-source changes.
 - Ensure `storage` and `bootstrap/cache` are writable by the web-server user.
