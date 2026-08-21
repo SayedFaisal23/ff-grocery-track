@@ -16,7 +16,7 @@
     <!-- PWA Icons -->
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <link rel="manifest" href="/manifest.json">
-    <script src="/pwa.js" defer></script>
+    <script src="/pwa.js?v=4" defer></script>
     
     <script>
         (() => {
@@ -45,11 +45,6 @@
     </style>
 </head>
 <body>
-
-    <div class="pwa-update-notice" data-pwa-update hidden role="status" aria-live="polite">
-        <span>Kemas kini FFGrocery tersedia.</span>
-        <button type="button" data-pwa-update-button>Kemas kini</button>
-    </div>
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
@@ -165,19 +160,19 @@
                     </div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-sm theme-toggle" data-theme-toggle aria-pressed="false">
+                <button type="button" class="btn btn-secondary btn-sm sidebar-action-button theme-toggle" data-theme-toggle aria-pressed="false">
                     <i class="fa-solid fa-sun" data-theme-icon></i>
                     <span data-theme-label>Mod cerah</span>
                 </button>
 
-                <button type="button" class="btn btn-secondary btn-sm pwa-install-button" data-pwa-install hidden>
+                <button type="button" class="btn btn-secondary btn-sm sidebar-action-button pwa-install-button" data-pwa-install hidden>
                     <i class="fa-solid fa-download"></i>
                     <span>Pasang aplikasi</span>
                 </button>
                 
-                <form action="{{ route('logout') }}" method="POST" style="margin-top: 8px;">
+                <form action="{{ route('logout') }}" method="POST" class="sidebar-action-form">
                     @csrf
-                    <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <button type="submit" class="btn btn-secondary btn-sm sidebar-action-button">
                         <i class="fa-solid fa-right-from-bracket"></i>
                         <span>Log Keluar</span>
                     </button>

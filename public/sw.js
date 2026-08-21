@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ffgrocery-v3';
+const CACHE_VERSION = 'ffgrocery-v4';
 const PRECACHE = `${CACHE_VERSION}-precache`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_PAGE = '/offline.html';
@@ -15,7 +15,11 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(caches.open(PRECACHE).then((cache) => cache.addAll(PRECACHE_URLS)));
+    event.waitUntil(
+        caches.open(PRECACHE)
+            .then((cache) => cache.addAll(PRECACHE_URLS))
+            .then(() => self.skipWaiting()),
+    );
 });
 
 self.addEventListener('activate', (event) => {

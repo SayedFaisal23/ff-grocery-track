@@ -5,11 +5,9 @@
 
     let deferredInstallPrompt = null;
     let refreshingAfterUpdate = false;
+    let controllerReloaded = false;
 
     const installButton = document.querySelector('[data-pwa-install]');
-    const updateNotice = document.querySelector('[data-pwa-update]');
-    const updateButton = document.querySelector('[data-pwa-update-button]');
-
     const showInstallButton = () => {
         if (installButton) installButton.hidden = false;
     };
@@ -18,8 +16,10 @@
         if (installButton) installButton.hidden = true;
     };
 
-    const showUpdateNotice = () => {
-        if (updateNotice) updateNotice.hidden = false;
+    const reloadForUpdate = () => {
+        if (!refreshingAfterUpdate) return;
+
+        window.location.reload();
     };
 
     window.addEventListener('beforeinstallprompt', (event) => {
@@ -46,22 +46,22 @@
         try {
             const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
 
-            const promptForUpdate = () => {
-                if (registration.waiting && navigator.serviceWorker.controller) {
-                    showUpdateNotice();
+            const activateWaitingWorker = () => {
+                if (!registration.waiting || !navigator.serviceWorker.controller) {
+                    return;
                 }
-            };
-
-            promptForUpdate();
-            registration.addEventListener('updatefound', () => {
-                registration.installing?.addEventListener('statechange', promptForUpdate);
-            });
-
-            updateButton?.addEventListener('click', () => {
-                if (!registration.waiting) return;
 
                 refreshingAfterUpdate = true;
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            };
+
+            activateWaitingWorker();
+            registration.addEventListener('updatefound', () => {
+                registration.installing?.addEventListener('statechange', () => {
+                    if (registration.waiting) {
+                        activateWaitingWorker();
+                    }
+                });
             });
         } catch (error) {
             // A failed registration must not interfere with normal web use.
@@ -70,8 +70,12 @@
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshingAfterUpdate) {
-            window.location.reload();
+        if (controllerReloaded) {
+            return;
         }
+
+        controllerReloaded = true;
+        refreshingAfterUpdate = true;
+        reloadForUpdate();
     });
 })();

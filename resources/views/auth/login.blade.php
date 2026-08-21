@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <link rel="stylesheet" href="/css/app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/pwa.js" defer></script>
+    <script src="/pwa.js?v=4" defer></script>
     
     <style>
         .login-wrapper {
@@ -81,11 +81,6 @@
     </style>
 </head>
 <body>
-
-    <div class="pwa-update-notice" data-pwa-update hidden role="status" aria-live="polite">
-        <span>Kemas kini FFGrocery tersedia.</span>
-        <button type="button" data-pwa-update-button>Kemas kini</button>
-    </div>
 
     <div class="login-wrapper">
         <div class="login-card">

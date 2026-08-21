@@ -187,13 +187,16 @@ button, input, select, textarea {
     padding-top: 1.5rem;
     border-top: 1px solid var(--border-color);
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .profile-info {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 6px;
 }
 
 .profile-avatar {
@@ -1125,14 +1128,6 @@ select.form-control option {
         width: 40px;
         height: 40px;
     }
-
-    .user-profile-section .theme-toggle {
-        margin-top: 4px;
-    }
-
-    .user-profile-section form {
-        margin-top: 10px !important;
-    }
     
     .main-content {
         margin-left: 0;
@@ -1817,7 +1812,19 @@ select.form-control option {
 /* Theme controls and loading state */
 .theme-toggle {
     width: 100%;
-    margin-top: 8px;
+}
+
+.sidebar-action-form {
+    width: 100%;
+}
+
+.sidebar-action-button {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    min-height: 32px;
+    width: 100%;
 }
 
 .loading-overlay {
@@ -3790,6 +3797,10 @@ html[data-theme="light"] .badge-general {
     z-index: 10000;
 }
 
+.pwa-update-notice[hidden] {
+    display: none !important;
+}
+
 .pwa-update-notice button {
     background: var(--color-primary, #6366f1);
     border: 0;
@@ -3803,8 +3814,6 @@ html[data-theme="light"] .badge-general {
 }
 
 .pwa-install-button {
-    align-items: center;
-    gap: 8px;
     width: 100%;
 }
 
