@@ -311,11 +311,6 @@
                 <label class="form-label">Baki (Unit)</label>
                 <input type="number" name="jumlah_belum_dibuka" id="adj_belum_dibuka" class="form-control" min="0" required>
             </div>
-            
-            <div class="adjustment-modal-primary-actions">
-                <button type="button" onclick="tutupModalPelarasan()" class="btn btn-secondary">Batal</button>
-                <button type="submit" class="btn btn-success">Simpan Pelarasan</button>
-            </div>
         </form>
 
         <div class="adjustment-modal-secondary-actions">
@@ -323,6 +318,13 @@
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Edit<br>Barangan</span>
             </a>
+        </div>
+
+        <div class="adjustment-modal-primary-actions">
+            <button type="submit" form="formPelarasan" class="btn btn-success">
+                <i class="fa-solid fa-check"></i>
+                <span>Simpan<br>Pelarasan</span>
+            </button>
             @hasanyrole('Superadmin|Stocker|Tracker')
             <form id="modalDeleteForm" method="POST" onsubmit="return confirm('Adakah anda pasti mahu memadam item ini?')">
                 @csrf

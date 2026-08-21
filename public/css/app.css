@@ -80,7 +80,7 @@ button, input, select, textarea {
 
 /* Sidebar Navigation */
 .sidebar {
-    width: 280px;
+    width: 250px;
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
     display: flex;
@@ -94,8 +94,8 @@ button, input, select, textarea {
 .logo-container {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 3rem;
+    gap: 10px;
+    margin-bottom: 1.5rem;
 }
 
 .logo-icon {
@@ -107,11 +107,11 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: 1.5rem;
 }
 
 .logo-text {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 700;
     background: linear-gradient(to right, #fff, var(--text-muted));
     -webkit-background-clip: text;
@@ -129,10 +129,11 @@ button, input, select, textarea {
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 10px 12px;
     position: relative;
     border-radius: var(--radius-sm);
+    font-size: 0.9rem;
     font-weight: 500;
     color: var(--text-muted);
     border: 1px solid transparent;
@@ -191,8 +192,8 @@ button, input, select, textarea {
 .profile-info {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 14px;
 }
 
 .profile-avatar {
@@ -208,10 +209,12 @@ button, input, select, textarea {
 }
 
 .profile-details {
+    min-width: 0;
     overflow: hidden;
 }
 
 .profile-name {
+    font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -230,11 +233,30 @@ button, input, select, textarea {
 /* Main Content Area */
 .main-content {
     flex-grow: 1;
-    margin-left: 280px;
+    margin-left: 250px;
     padding: 2.5rem 3rem;
     min-height: 100vh;
     container-name: main-content;
     container-type: inline-size;
+}
+
+@media (min-width: 993px) {
+    .sidebar {
+        width: 300px;
+    }
+
+    .nav-item,
+    .profile-name {
+        font-size: 1rem;
+    }
+
+    .nav-menu {
+        padding-bottom: 1.5rem;
+    }
+
+    .main-content {
+        margin-left: 300px;
+    }
 }
 
 /* Page Header */
@@ -755,13 +777,6 @@ button, input, select, textarea {
 }
 
 .adjustment-modal-primary-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 2rem;
-}
-
-.adjustment-modal-secondary-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
@@ -770,8 +785,23 @@ button, input, select, textarea {
     border-top: 1px solid var(--border-color);
 }
 
+.adjustment-modal-secondary-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 2rem;
+}
+
+.adjustment-modal-primary-actions .btn,
+.adjustment-modal-primary-actions form,
+.adjustment-modal-primary-actions form .btn,
 .adjustment-modal-secondary-actions .btn {
     width: 100%;
+}
+
+.adjustment-modal-primary-actions .btn,
+.adjustment-modal-secondary-actions .btn {
+    min-height: 58px;
 }
 
 .expiry-date-urgent {
@@ -1060,20 +1090,48 @@ select.form-control option {
         transform: translateX(-100%);
         transition: transform var(--transition-normal);
         overflow-y: auto;
+        padding-top: 1rem;
+    }
+
+    .sidebar > .logo-container {
+        display: none;
     }
     
     .sidebar.open {
         transform: translateX(0);
     }
 
-    /* On mobile: don't stretch the nav to fill the viewport height —
-       keeps the profile/logout block right below the nav items */
+    /* Keep the account controls anchored at the bottom of the menu. */
     .nav-menu {
-        flex-grow: 0;
+        flex-grow: 1;
+        gap: 10px;
+    }
+
+    .nav-item {
+        padding: 9px 10px;
     }
 
     .user-profile-section {
-        margin-top: 1.5rem;
+        margin-top: 0;
+        padding-top: 0.75rem;
+        padding-bottom: 3.5rem;
+    }
+
+    .profile-info {
+        margin-bottom: 8px;
+    }
+
+    .profile-avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+    .user-profile-section .theme-toggle {
+        margin-top: 4px;
+    }
+
+    .user-profile-section form {
+        margin-top: 10px !important;
     }
     
     .main-content {
@@ -1266,6 +1324,7 @@ select.form-control option {
         flex-direction: column;
         gap: 6px;
         align-items: flex-start;
+        min-width: 0;
     }
 
     .item-name-group .item-name {
@@ -1273,6 +1332,8 @@ select.form-control option {
         font-weight: 600;
         color: var(--text-main);
         line-height: 1.3;
+        max-width: 100%;
+        overflow-wrap: anywhere;
     }
 
     .item-name-group .item-variant-line {
@@ -1282,6 +1343,9 @@ select.form-control option {
         line-height: 1.25;
         min-height: 1.15rem;
         display: block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 
     .item-name-group .item-variant-line-placeholder {
@@ -1386,6 +1450,108 @@ select.form-control option {
         margin-top: 4px;
     }
 
+    .restock-mobile-card {
+        gap: 0.75rem;
+        min-height: 204px;
+    }
+
+    .restock-mobile-card-danger {
+        border-color: rgba(239, 68, 68, 0.18);
+    }
+
+    .restock-mobile-card-warning {
+        border-color: rgba(245, 158, 11, 0.2);
+    }
+
+    .restock-section .card-header-flex > .badge {
+        font-size: 0.86rem;
+        padding: 5px 12px;
+    }
+
+    .restock-card-header {
+        gap: 12px;
+    }
+
+    .restock-card-header .item-name-group {
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .restock-card-header .item-name {
+        display: -webkit-box;
+        font-size: 1.2rem;
+        line-height: 1.25;
+        max-width: 100%;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .restock-card-status {
+        flex: 0 0 auto;
+        max-width: 42%;
+    }
+
+    .restock-card-status .badge,
+    .restock-card-header .kategori-pill {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.84rem;
+        line-height: 1.2;
+    }
+
+    .restock-card-stats {
+        gap: 0;
+        padding: 0.78rem 0.9rem;
+        background-color: rgba(255, 255, 255, 0.025);
+    }
+
+    .restock-card-stats .stat-box {
+        min-height: 32px;
+    }
+
+    .restock-card-stats .stat-box + .stat-box {
+        margin-top: 0.35rem;
+        padding-top: 0.35rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.045);
+    }
+
+    .restock-card-stats .stat-box.baki-box {
+        border-left: 0;
+        padding-left: 0;
+    }
+
+    .restock-card-stats .stat-label {
+        font-size: 0.78rem;
+        letter-spacing: 0.7px;
+    }
+
+    .restock-card-stats .stat-val {
+        gap: 0.1rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .restock-card-stats .stat-val strong {
+        font-size: 1.02rem;
+    }
+
+    .restock-card-actions {
+        justify-content: flex-end;
+        padding-top: 10px;
+        margin-top: 0.1rem;
+    }
+
+    .restock-card-actions .btn {
+        min-width: 136px;
+        min-height: 42px;
+        padding-inline: 14px;
+        font-size: 0.95rem;
+    }
+
     .created-at-text {
         font-size: 0.75rem;
         color: var(--text-dark);
@@ -1424,34 +1590,37 @@ select.form-control option {
 
     .adjustment-modal-primary-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         grid-auto-rows: 58px;
     }
 
     .adjustment-modal-secondary-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         grid-auto-rows: 58px;
     }
 
     .adjustment-modal-primary-actions .btn,
-    .adjustment-modal-secondary-actions > .btn,
-    .adjustment-modal-secondary-actions form,
-    .adjustment-modal-secondary-actions form .btn {
+    .adjustment-modal-primary-actions form,
+    .adjustment-modal-primary-actions form .btn,
+    .adjustment-modal-secondary-actions > .btn {
         width: 100%;
         height: 100%;
     }
 
+    .adjustment-modal-primary-actions .btn,
     .adjustment-modal-secondary-actions .btn {
         position: relative;
         justify-content: center;
         gap: 0;
     }
 
+    .adjustment-modal-primary-actions .btn > i,
     .adjustment-modal-secondary-actions .btn > i {
         position: absolute;
         left: 18px;
     }
 
+    .adjustment-modal-primary-actions .btn > span,
     .adjustment-modal-secondary-actions .btn > span {
         width: 100%;
         line-height: 1.2;
@@ -1755,6 +1924,23 @@ html[data-theme="light"] .alert-danger {
 html[data-theme="light"] .mobile-card-stats {
     background-color: rgba(15, 23, 42, 0.025);
     border-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .restock-mobile-card-danger {
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+html[data-theme="light"] .restock-mobile-card-warning {
+    border-color: rgba(245, 158, 11, 0.22);
+}
+
+html[data-theme="light"] .restock-card-stats {
+    background-color: rgba(15, 23, 42, 0.018);
+    border-color: rgba(15, 23, 42, 0.085);
+}
+
+html[data-theme="light"] .restock-card-stats .stat-box + .stat-box {
+    border-top-color: rgba(15, 23, 42, 0.075);
 }
 
 html[data-theme="light"] .stat-box.baki-box {
@@ -3761,4 +3947,3 @@ html[data-theme="light"] .flowchart-image-light {
         padding: 1rem;
     }
 }
-

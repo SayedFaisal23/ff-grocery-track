@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "../../../../ff-creative-hub"
+		},
+		{
+			"name": "ff-grocery-local",
+			"path": "../.."
+		},
+		{
+			"path": "../../../../Documents/ffportal"
+		}
+	],
+	"settings": {}
+}
